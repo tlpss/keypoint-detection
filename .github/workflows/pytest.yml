@@ -1,0 +1,22 @@
+name: Pytest
+
+on: [push]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install conda env
+      run: |
+        # $CONDA is an environment variable pointing to the root of the miniconda directory
+        $CONDA/bin/conda env create --file environment.yaml
+    - name: Pytest 
+      run: |
+        conda install pytest
+        $CONDA/envs/python39/pytest
