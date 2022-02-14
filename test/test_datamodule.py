@@ -41,8 +41,8 @@ class TestDataModule(unittest.TestCase):
         corner_kp, flap_kp = keypoints
 
         self.assertIsInstance(img, torch.Tensor)
-        self.assertEquals(img.shape, (2, 3, 64, 64))
+        self.assertEqual(img.shape, (2, 3, 64, 64))
         self.assertIsInstance(corner_kp, torch.Tensor)
-        self.assertEquals(corner_kp.shape, (2, 4, 3))
+        self.assertEqual(corner_kp.shape, (2, 4, 3))
         self.assertIsInstance(flap_kp, torch.Tensor)
-        self.assertEquals(flap_kp.shape, (2, 8, 3))
+        self.assertEqual(flap_kp.shape, (2, 8, 3))

@@ -13,6 +13,8 @@ For an example integration of the package in your own project, see [here](https:
 
 ## Local Installation
 - clone this repo in your project (as a [submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules), using [vcs](https://github.com/dirk-thomas/vcstool),..).
+- create conda env using `conda env create --file environment.yaml`
+- activate the environmant using `conda activate python39`
 - pip install the package using `pip install -e keypoint_detection` from the repo root directory. This will install the required dependencies in the current python environment.
 - run `wandb login` to set up your wandb account.
 
