@@ -36,6 +36,8 @@ class TestDataModule(unittest.TestCase):
 
         img, keypoints = batch
 
+        self.assertTrue(isinstance(keypoints, list))
+
         corner_kp, flap_kp = keypoints
 
         self.assertIsInstance(img, torch.Tensor)
