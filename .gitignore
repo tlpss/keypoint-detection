@@ -1,0 +1,10 @@
+**.egg-info
+**/__pycache__/
+.idea/**
+.vscode/**
+
+dataset/
+**wandb/
+lightning_logs**
+**.ckpt
+**/checkpoints/
