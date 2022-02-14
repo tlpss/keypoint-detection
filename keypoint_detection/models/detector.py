@@ -30,17 +30,37 @@ class KeypointDetector(pl.LightningModule):
 
         # TODO: add these with inspection to avoid manual duplication!
 
-        parser.add_argument("--heatmap_sigma", default=2, type=int)
+        parser.add_argument(
+            "--heatmap_sigma",
+            default=2,
+            type=int,
+            help="The size of the Gaussian blobs that are used to create the ground truth heatmaps from the keypoint coordinates.",
+        )
         parser.add_argument(
             "--minimal_keypoint_extraction_pixel_distance",
             type=int,
             default=1,
             help="the minimal pixel-distance between two keypoints. Allows for some non-maximum surpression.",
         )
-        parser.add_argument("--maximal_gt_keypoint_pixel_distances", type=str, default="2 4")
+        parser.add_argument(
+            "--maximal_gt_keypoint_pixel_distances",
+            type=str,
+            default="2 4",
+            help="The treshold distance(s) for the AP metric to consider a detection as a True Positive. Separate multiple values by a space to compute the AP for all values.",
+        )
         parser.add_argument("--learning_rate", type=float, default=3e-4)  # Karpathy constant
-        parser.add_argument("--ap_epoch_start", type=int, default=10)
-        parser.add_argument("--ap_epoch_freq", type=int, default=10)
+        parser.add_argument(
+            "--ap_epoch_start",
+            type=int,
+            default=10,
+            help="Epoch at which to start calculating the AP every `ap_epoch_frequency` epochs.",
+        )
+        parser.add_argument(
+            "--ap_epoch_freq",
+            type=int,
+            default=10,
+            help="Rate at which to calculate the AP metric if epoch > `ap_epoch_start`",
+        )
 
         return parent_parser
 

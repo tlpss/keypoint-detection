@@ -23,5 +23,7 @@ class LossFactory:
     @staticmethod
     def add_to_argparse(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         parser = parent_parser.add_argument_group("LossFactory")
-        parser.add_argument("--loss", type=str, default="bce")
+        parser.add_argument(
+            "--loss", type=str, default="bce", help="loss function for pixel-wise loss on the heatmaps"
+        )
         return parent_parser

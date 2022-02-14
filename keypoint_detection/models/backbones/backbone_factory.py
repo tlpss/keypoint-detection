@@ -21,7 +21,9 @@ class BackboneFactory:
     @staticmethod
     def add_to_argparse(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         parser = parent_parser.add_argument_group("BackboneFactory")
-        parser.add_argument("--backbone_type", type=str, default="Unet")
+        parser.add_argument(
+            "--backbone_type", type=str, default="Unet", help="The Class of the Backbone for the Detector."
+        )
 
         # add all possible backbone hyperparams.
         # would be better to check at runtime if no arguments of other backbones have been added as these will be ignored

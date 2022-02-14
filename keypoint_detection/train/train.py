@@ -19,18 +19,22 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
     function that adds all system configuration (hyper)parameters to the provided argumentparser
     """
     parser = parent_parser.add_argument_group("System")
-    parser.add_argument("--seed", default=2022)
-    parser.add_argument("--wandb_project", default="test-project")
-    parser.add_argument("--wandb_entity", default="airo-box-manipulation")
+    parser.add_argument("--seed", default=2022, help="seed for reproducibility")
+    parser.add_argument("--wandb_project", default="test-project", help="The wandb project to log the results to")
+    parser.add_argument(
+        "--wandb_entity",
+        default="airo-box-manipulation",
+        help="The entity name to log the project against, can be simply set to your username if you have no dedicated entity for this project",
+    )
     parser.add_argument(
         "--keypoint_channels",
         type=str,
-        help="The names of the keypoint channels that you want to detect, as they are defined in the dataset.json file",
+        help="The names of the keypoint channels that you want to detect, as they are defined in the dataset.json file. Seperate the names with a space.",
     )
     parser.add_argument(
         "--keypoint_channel_max_keypoints",
         type=str,
-        help="The maximal number of keypoints within each channel, used to pad the keypoint tensor if the number of (visible) keypoints is not constant",
+        help="The maximal number of keypoints within each channel, used to pad the keypoint tensor if the number of (visible) keypoints is not constant. If the number of keypoints is the same for each instance, provide -1 for optimal performance. Separate the names with a space.",
     )
     return parent_parser
 

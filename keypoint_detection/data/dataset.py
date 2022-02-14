@@ -47,13 +47,16 @@ class KeypointsDataset(ImageDataset):
         """
         parser = parent_parser.add_argument_group("keypointsDataset")
         parser.add_argument(
-            "--image_dataset_path", required=False, type=str, help="path to the json file that defines the dataset"
+            "--image_dataset_path",
+            required=False,
+            type=str,
+            help="Absolute path to the json file that defines the dataset according to the defined format.",
         )
         parser.add_argument(
             "--json_dataset_path",
             required=False,
             type=str,
-            help="path to the base dir from where the images are referenced in the json file of the dataset",
+            help="Absolute path to the base dir from where the images are referenced in the json file of the dataset.",
         )
         return parent_parser
 
