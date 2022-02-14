@@ -10,10 +10,10 @@ dependencies:
   - pytorch=1.10.2=py3.9_cuda10.2_cudnn7.6.5_0
   - torchvision=0.11.3=py39_cu102
   - pip:
-    - wandb=0.12.10
-    - tqdm=4.62.3
-    - pytest=7.0.1
-    - matplotlib=3.5.1
+    - wandb==0.12.10
+    - tqdm==4.62.3
+    - pytest==7.0.1
+    - matplotlib==3.5.1
     - pytorch-lightning==1.5.10
     - torchmetrics==0.7.2
     - scikit-learn==1.0.2
