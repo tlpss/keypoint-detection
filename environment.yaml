@@ -16,5 +16,5 @@ dependencies:
     - matplotlib==3.5.1
     - pytorch-lightning==1.5.10
     - torchmetrics==0.7.2
-    - scikit-learn==1.0.2
+    - scikit-image==0.19.1
     - -e .
