@@ -32,20 +32,15 @@ class KeypointDetector(pl.LightningModule):
 
         parser.add_argument("--heatmap_sigma", default=2, type=int)
         parser.add_argument(
-            "--minimal_keypoint_extract_pixel_distance",
+            "--minimal_keypoint_extraction_pixel_distance",
             type=int,
             default=1,
             help="the minimal pixel-distance between two keypoints. Allows for some non-maximum surpression.",
         )
-        parser.add_argument("--maximal_gt_keypoint_pixel_distances", type=str, required=False)
+        parser.add_argument("--maximal_gt_keypoint_pixel_distances", type=str, default="2 4")
         parser.add_argument("--learning_rate", type=float, default=3e-4)  # Karpathy constant
         parser.add_argument("--ap_epoch_start", type=int, default=10)
         parser.add_argument("--ap_epoch_freq", type=int, default=10)
-        parser.add_argument(
-            "--keypoint_channels",
-            type=str,
-            help="The names of the keypoint channels that you want to detect, as they are defined in the dataset.json file",
-        )
 
         return parent_parser
 
@@ -88,7 +83,7 @@ class KeypointDetector(pl.LightningModule):
         self.heatmap_sigma = heatmap_sigma
         self.ap_epoch_start = ap_epoch_start
         self.ap_epoch_freq = ap_epoch_freq
-        self.minimal_keypoint_pixel_distance = int(minimal_keypoint_extraction_pixel_distance)
+        self.minimal_keypoint_pixel_distance = minimal_keypoint_extraction_pixel_distance
         self.heatmap_loss = loss_function
 
         if isinstance(keypoint_channels, list):

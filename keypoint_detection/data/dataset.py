@@ -55,17 +55,6 @@ class KeypointsDataset(ImageDataset):
             type=str,
             help="path to the base dir from where the images are referenced in the json file of the dataset",
         )
-        parser.add_argument(
-            "--keypoint_channels",
-            type=str,
-            help="The names of the keypoint channels that you want to detect, as they are defined in the dataset.json file",
-        )
-        parser.add_argument(
-            "--keypoint_channel_max_keypoints",
-            type=str,
-            help="The maximal number of keypoints within each channel, used to pad the keypoint tensor if the number of (visible) keypoints is not constant",
-        )
-
         return parent_parser
 
     def __init__(
@@ -146,7 +135,6 @@ class KeypointsDataset(ImageDataset):
 
             keypoints.append(kp)
 
-        print(keypoints)
         return image, keypoints
 
     def get_image(self, index: int) -> np.ndarray:

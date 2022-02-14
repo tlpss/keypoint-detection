@@ -1,3 +1,13 @@
+import inspect
+from argparse import Namespace
+
+import pytorch_lightning as pl
+from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import WandbLogger
+
+from keypoint_detection.models.detector import KeypointDetector
+
+
 def create_pl_trainer_from_args(hparams: dict, wandb_logger: WandbLogger) -> Trainer:
     """
     function that creates a pl.Trainer instance from the given global hyperparameters and logger.

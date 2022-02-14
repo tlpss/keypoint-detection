@@ -13,7 +13,7 @@ class RandomSplitDataModule(pl.LightningDataModule):
         """
         parser = parent_parser.add_argument_group("RandomSplitDatamodule")
         parser.add_argument("--batch_size", default=16, type=int)
-        parser.add_argument("--validation_split_ratio", default=0.2, type=float)
+        parser.add_argument("--validation_split_ratio", default=0.25, type=float)
         parser.add_argument("--num_workers", default=4, type=int)
 
         return parent_parser

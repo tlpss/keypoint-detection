@@ -8,12 +8,12 @@ from keypoint_detection.models.backbones.unet import UnetBackbone
 
 class BackboneFactory:
     @staticmethod
-    def create_backbone(backbone: str, **kwargs) -> Backbone:
-        if backbone == "DilatedCnn":
+    def create_backbone(backbone_type: str, **kwargs) -> Backbone:
+        if backbone_type == "DilatedCnn":
             return DilatedCnn(**kwargs)
-        elif backbone == "S3K":
+        elif backbone_type == "S3K":
             return S3K()
-        elif backbone == "Unet":
+        elif backbone_type == "Unet":
             return UnetBackbone(**kwargs)
         else:
             raise Exception("Unknown backbone type")
@@ -21,7 +21,7 @@ class BackboneFactory:
     @staticmethod
     def add_to_argparse(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         parser = parent_parser.add_argument_group("BackboneFactory")
-        parser.add_argument("--backbone", type=str, default="DilatedCnn")
+        parser.add_argument("--backbone_type", type=str, default="Unet")
 
         # add all possible backbone hyperparams.
         # would be better to check at runtime if no arguments of other backbones have been added as these will be ignored
