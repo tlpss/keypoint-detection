@@ -1,5 +1,4 @@
-import inspect
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 from typing import Tuple
 
 import pytorch_lightning as pl
@@ -7,11 +6,10 @@ import wandb
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer.trainer import Trainer
 
-from keypoint_detection.data.datamodule import RandomSplitDataModule
 from keypoint_detection.data.dataset import KeypointsDatasetPreloaded
+from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import LossFactory
-from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 
 default_config = {
     ## system params
@@ -40,8 +38,6 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument("--train_val_split_ratio", required=False, type=float)
 
     return parent_parser
-
-
 
 
 def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
@@ -95,9 +91,8 @@ if __name__ == "__main__":
     # get parser arguments and filter the specified arguments
     args = vars(parser.parse_args())
 
-
     # remove the unused optional items without default, which have None as key
-    args = {k: v for k, v in args.items() if v is not None}  
+    args = {k: v for k, v in args.items() if v is not None}
 
     print(f" argparse arguments ={args}")
 

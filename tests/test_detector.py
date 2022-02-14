@@ -7,11 +7,12 @@ from pytorch_lightning.loggers import WandbLogger
 
 from keypoint_detection.data.datamodule import RandomSplitDataModule
 from keypoint_detection.data.dataset import KeypointsDataset
-from keypoint_detection.models.metrics import KeypointAPMetric
-from keypoint_detection.models.detector import KeypointDetector
-from keypoint_detection.utils.heatmap import generate_keypoints_heatmap
 from keypoint_detection.models.backbones.dilated_cnn import DilatedCnn
+from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import bce_loss
+from keypoint_detection.models.metrics import KeypointAPMetric
+from keypoint_detection.utils.heatmap import generate_keypoints_heatmap
+
 
 class TestHeatmapUtils(unittest.TestCase):
     def setUp(self) -> None:
@@ -27,8 +28,9 @@ class TestHeatmapUtils(unittest.TestCase):
         self.max_keypoints_channel = "4 8"
         self.backbone = DilatedCnn()
         self.loss_function = bce_loss
-        self.model = KeypointDetector(self.sigma,"2.0",1,3e-4,self.backbone,self.loss_function,self.channels,1,1)
-
+        self.model = KeypointDetector(
+            self.sigma, "2.0", 1, 3e-4, self.backbone, self.loss_function, self.channels, 1, 1
+        )
 
     def test_perfect_heatmap(self):
         loss = self.model.heatmap_loss(self.heatmaps, self.heatmaps)
@@ -50,15 +52,20 @@ class TestModel(unittest.TestCase):
         self.max_keypoints_channel = "4 8"
         self.backbone = DilatedCnn()
         self.loss_function = bce_loss
-        self.model = KeypointDetector(self.sigma,"2.0",1,3e-4,self.backbone,self.loss_function,self.channels,1,1)
+        self.model = KeypointDetector(
+            self.sigma, "2.0", 1, 3e-4, self.backbone, self.loss_function, self.channels, 1, 1
+        )
 
         self.module = RandomSplitDataModule(
             KeypointsDataset(
-                os.path.join(TEST_DIR, "test_dataset/dataset.json"), os.path.join(TEST_DIR, "test_dataset"),self.channels, self.max_keypoints_channel
+                os.path.join(TEST_DIR, "test_dataset/dataset.json"),
+                os.path.join(TEST_DIR, "test_dataset"),
+                self.channels,
+                self.max_keypoints_channel,
             ),
             2,
             0.5,
-            2
+            2,
         )
 
     def test_shared_step_batch(self):
@@ -69,11 +76,10 @@ class TestModel(unittest.TestCase):
 
         result_dict = model.shared_step(batch, 0)
 
-        assert(result_dict["loss"])
-        assert(result_dict["gt_loss"])
-        assert(result_dict[f"corner_keypoints_loss"])
+        assert result_dict["loss"]
+        assert result_dict["gt_loss"]
+        assert result_dict[f"corner_keypoints_loss"]
 
-    
     def test_train(self):
         """
         run train and evaluation to see if all goes as expected
@@ -81,7 +87,6 @@ class TestModel(unittest.TestCase):
         wandb_logger = WandbLogger(dir=KeypointDetector.get_wand_log_dir_path(), mode="offline")
 
         model = self.model
-
 
         if torch.cuda.is_available():
             gpus = 1
@@ -96,7 +101,6 @@ class TestModel(unittest.TestCase):
         imgs, keypoints = batch
         with torch.no_grad():
             model(imgs)
-
 
     def test_gt_heatmaps(self):
         max_dst = 2

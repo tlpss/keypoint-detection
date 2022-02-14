@@ -1,6 +1,4 @@
 import argparse
-import distutils.util
-import enum
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
@@ -8,13 +6,11 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 
-from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.metrics import DetectedKeypoint, Keypoint, KeypointAPMetrics
-from keypoint_detection.models.loss import LossFactory
-from keypoint_detection.utils.visualization import visualize_predictions
 from keypoint_detection.utils.heatmap import generate_keypoints_heatmap, get_keypoints_from_heatmap
 from keypoint_detection.utils.tensor_padding import unpad_nans_from_tensor
+from keypoint_detection.utils.visualization import visualize_predictions
 
 
 class KeypointDetector(pl.LightningModule):
@@ -34,12 +30,17 @@ class KeypointDetector(pl.LightningModule):
 
         # TODO: add these with inspection to avoid manual duplication!
 
-        parser.add_argument("--heatmap_sigma",default= 2, type=int)
-        parser.add_argument("--minimal_keypoint_extract_pixel_distance", type=int, default = 1, help="the minimal pixel-distance between two keypoints. Allows for some non-maximum surpression.")
+        parser.add_argument("--heatmap_sigma", default=2, type=int)
+        parser.add_argument(
+            "--minimal_keypoint_extract_pixel_distance",
+            type=int,
+            default=1,
+            help="the minimal pixel-distance between two keypoints. Allows for some non-maximum surpression.",
+        )
         parser.add_argument("--maximal_gt_keypoint_pixel_distances", type=str, required=False)
-        parser.add_argument("--learning_rate", type=float, default = 3e-4) # Karpathy constant
-        parser.add_argument("--ap_epoch_start", type=int, default = 10)
-        parser.add_argument("--ap_epoch_freq", type=int, default = 10)
+        parser.add_argument("--learning_rate", type=float, default=3e-4)  # Karpathy constant
+        parser.add_argument("--ap_epoch_start", type=int, default=10)
+        parser.add_argument("--ap_epoch_freq", type=int, default=10)
         parser.add_argument(
             "--keypoint_channels",
             type=str,
@@ -83,7 +84,6 @@ class KeypointDetector(pl.LightningModule):
         # 2. add to the argparse method of this module
         # 3. pass them along when calling the train.py file to override their default value
 
-
         self.learning_rate = learning_rate
         self.heatmap_sigma = heatmap_sigma
         self.ap_epoch_start = ap_epoch_start
@@ -105,11 +105,12 @@ class KeypointDetector(pl.LightningModule):
         else:
             self.maximal_gt_keypoint_pixel_distances = maximal_gt_keypoint_pixel_distances
 
-
-        self.ap_validaiton_metric = [KeypointAPMetrics(self.maximal_gt_keypoint_pixel_distances) for _ in self.keypoint_channels]
+        self.ap_validaiton_metric = [
+            KeypointAPMetrics(self.maximal_gt_keypoint_pixel_distances) for _ in self.keypoint_channels
+        ]
 
         self.n_channels_out = len(self.keypoint_channels)
-        
+
         head = nn.Conv2d(
             in_channels=backbone.get_n_channels_out(),
             out_channels=self.n_channels_out,
@@ -146,7 +147,7 @@ class KeypointDetector(pl.LightningModule):
         batch: img, keypoints
         where img is a B,3,H,W tensor
         and keypoints a list of len(channels) with B,N,(2/3) keypoints for each channel
-        
+
         returns:
 
         shared_dict (Dict): a dict with the heatmaps, gt_keypoints and losses
@@ -156,32 +157,36 @@ class KeypointDetector(pl.LightningModule):
         channel_gt_heatmaps = []
         for channel_idx in range(len(self.keypoint_channels)):
             num_kp = padded_keypoints[channel_idx].shape[0]
-            unpadded_kp = [unpad_nans_from_tensor(padded_keypoints[channel_idx][j,:,:])for j in range(num_kp)]
+            unpadded_kp = [unpad_nans_from_tensor(padded_keypoints[channel_idx][j, :, :]) for j in range(num_kp)]
             channel_keypoints.append(unpadded_kp)
             channel_gt_heatmaps.append(self.create_heatmap_batch(imgs[0].shape[1:], channel_keypoints[channel_idx]))
         imgs = imgs.to(self.device)
 
         ## predict and compute losses
-        predicted_heatmaps = self.forward(imgs)  
+        predicted_heatmaps = self.forward(imgs)
 
         channel_losses = []
         channel_gt_losses = []
 
         result_dict = {}
         for channel_idx in range(len(self.keypoint_channels)):
-            channel_losses.append(self.heatmap_loss(predicted_heatmaps[:,channel_idx,:,:],channel_gt_heatmaps[channel_idx]))
-            channel_gt_losses.append(self.heatmap_loss(channel_gt_heatmaps[channel_idx], channel_gt_heatmaps[channel_idx])) # BCE gt loss does not go to zero.. (entropy)
-            
-            # pass losses and other info to result dict
-            result_dict.update({f"{self.keypoint_channels[channel_idx]}_loss" : channel_losses[channel_idx].detach()})
-            if validate:
-                result_dict.update({f"{self.keypoint_channels[channel_idx]}_keypoints" : channel_keypoints[channel_idx]})
+            channel_losses.append(
+                self.heatmap_loss(predicted_heatmaps[:, channel_idx, :, :], channel_gt_heatmaps[channel_idx])
+            )
+            channel_gt_losses.append(
+                self.heatmap_loss(channel_gt_heatmaps[channel_idx], channel_gt_heatmaps[channel_idx])
+            )  # BCE gt loss does not go to zero.. (entropy)
 
+            # pass losses and other info to result dict
+            result_dict.update({f"{self.keypoint_channels[channel_idx]}_loss": channel_losses[channel_idx].detach()})
+            if validate:
+                result_dict.update(
+                    {f"{self.keypoint_channels[channel_idx]}_keypoints": channel_keypoints[channel_idx]}
+                )
 
         # only pass predictions in validate step to avoid overhead in train step.
         if validate:
             result_dict.update({"predicted_heatmaps": predicted_heatmaps.detach()})
-
 
         loss = sum(channel_losses)
         gt_loss = sum(channel_gt_losses)
@@ -192,14 +197,13 @@ class KeypointDetector(pl.LightningModule):
             for channel_idx, channel_name in enumerate(self.keypoint_channels):
                 visualize_predictions(
                     imgs,
-                    predicted_heatmaps[:,channel_idx,:,:].detach(),
+                    predicted_heatmaps[:, channel_idx, :, :].detach(),
                     channel_gt_heatmaps[channel_idx],
                     self.logger,
                     self.minimal_keypoint_pixel_distance,
                     channel_name,
                     validate=validate,
                 )
-
 
         return result_dict
 
@@ -223,7 +227,9 @@ class KeypointDetector(pl.LightningModule):
             for channel_idx, channel_name in enumerate(self.keypoint_channels):
                 predicted_channel_heatmaps = result_dict["predicted_heatmaps"][:, channel_idx, :, :]
                 gt_corner_keypoints = result_dict[f"{channel_name}_keypoints"]
-                self.update_ap_metrics(predicted_channel_heatmaps, gt_corner_keypoints, self.ap_validaiton_metric[channel_idx])
+                self.update_ap_metrics(
+                    predicted_channel_heatmaps, gt_corner_keypoints, self.ap_validaiton_metric[channel_idx]
+                )
 
         ## log (defaults to on_epoch, which aggregates the logged values over entire validation set)
         self.log("validation/epoch_loss", result_dict["loss"])
