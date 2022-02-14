@@ -3,20 +3,33 @@ name: Pytest
 on: [push]
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-
+  conda-pytest:
+    runs-on: "ubuntu-latest"
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install conda env
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        $CONDA/bin/conda env create --file environment.yaml
-    - name: Pytest 
-      run: |
-        conda install pytest
-        $CONDA/envs/python39/pytest
+      - uses: actions/checkout@v2
+      - name: Cache conda
+        uses: actions/cache@v2
+        env:
+          # Increase this value to reset cache if etc/example-environment.yml has not changed
+          CACHE_NUMBER: 0
+        with:
+          path: ~/conda_pkgs_dir
+          key:
+            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+            hashFiles('etc/example-environment.yml') }}
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: python39
+          channel-priority: strict
+          environment-file: environment.yml
+          use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+      - name: Conda list
+        shell: bash -l {0}
+        
+        run: conda list
+      - name: pytest
+        run: |
+          conda install pytest
+          pytest .
+     
+     
