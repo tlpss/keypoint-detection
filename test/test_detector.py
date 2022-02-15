@@ -84,7 +84,7 @@ class TestModel(unittest.TestCase):
         """
         run train and evaluation to see if all goes as expected
         """
-        wandb_logger = WandbLogger(dir=KeypointDetector.get_wand_log_dir_path(), mode="offline")
+        wandb_logger = WandbLogger(dir=KeypointDetector.get_wandb_log_dir_path(), mode="offline")
 
         model = self.model
 

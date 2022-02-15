@@ -270,11 +270,11 @@ class KeypointDetector(pl.LightningModule):
     ##################
     @classmethod
     def get_artifact_dir_path(cls) -> Path:
-        return Path(__file__).resolve().parents[1] / "artifacts"
+        return Path(__file__).resolve().parents[2] / "artifacts"
 
     @classmethod
-    def get_wand_log_dir_path(cls) -> Path:
-        return Path(__file__).resolve().parents[1] / "wandb"
+    def get_wandb_log_dir_path(cls) -> Path:
+        return Path(__file__).resolve().parents[2]
 
     def update_ap_metrics(
         self, predicted_heatmaps: torch.Tensor, gt_keypoints: torch.Tensor, validation_metric: KeypointAPMetrics
