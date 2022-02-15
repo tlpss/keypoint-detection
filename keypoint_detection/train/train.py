@@ -97,7 +97,7 @@ if __name__ == "__main__":
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
         config=hparams,
-        dir=KeypointDetector.get_wandb_log_dir_path(), # dir should already exist! will fallback to /tmp and not log images otherwise..
+        dir=KeypointDetector.get_wandb_log_dir_path(),  # dir should already exist! will fallback to /tmp and not log images otherwise..
     )
 
     # get (possibly updated by sweep) config parameters
