@@ -104,5 +104,5 @@ if __name__ == "__main__":
     hparams = wandb.config
     print(f" config after wandb init: {hparams}")
 
-    print("starting trainig")
+    print("starting training")
     main(hparams)

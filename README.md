@@ -1,7 +1,7 @@
 # keypoint-detection
 Python package for 2D keypoint detection using [Pytorch Lightning](https://pytorch-lightning.readthedocs.io/en/latest/) and [wandb](https://docs.wandb.ai/). Keypoints are trained using Gaussian Heatmaps (cf CenterNet paper).
 
-** Main Features**
+**Main Features**
 
 - This package contains a number of backbones (Unet-like, dilated CNN,...)and loss functions. Both are modular with a factory pattern, which allows to easily add new backbones or loss functions. The head of the keypoint detector is a single CNN layer (as usual).
 - The detector can deal with an arbitrary number of keypoint classes (or channels), that can deal with different number of keypoints within a batch.
