@@ -1,36 +1,16 @@
-import abc
 import argparse
 import json
 import os
-import random
-import time
 from pathlib import Path
 from typing import List, Union
 
 import numpy as np
 import torch
-import tqdm
 from skimage import io
-from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
 
+from keypoint_detection.data.utils import ImageDataset, ImageLoader, IOSafeImageLoaderDecorator
 from keypoint_detection.utils.tensor_padding import pad_tensor_with_nans
-
-
-class ImageDataset(Dataset, abc.ABC):
-    def __init__(self):
-        pass
-
-    def __getitem__(self, index):
-        pass
-
-    def __len__(self):
-        pass
-
-    def get_image(self, index: int) -> np.ndarray:
-        """
-        get image associated to dataset[index]
-        """
 
 
 class KeypointsDataset(ImageDataset):
@@ -69,7 +49,8 @@ class KeypointsDataset(ImageDataset):
         **kwargs,
     ):
 
-        super(KeypointsDataset, self).__init__()
+        image_loader = IOSafeImageLoaderDecorator(ImageLoader())
+        super(KeypointsDataset, self).__init__(image_loader)
         self.json_file = json_dataset_path
         self.image_dir = image_dataset_path
 
@@ -148,101 +129,3 @@ class KeypointsDataset(ImageDataset):
         image_path = os.path.join(os.getcwd(), self.image_dir, self.dataset[index]["image_path"])
         image = io.imread(image_path)
         return image
-
-
-class KeypointsDatasetIOCatcher(KeypointsDataset):
-    """
-    This Dataset performs n attempts to load the dataset item, in an attempt
-    to overcome IOErrors that can happen every now and then on a HPC.
-     This does not require the entire dataset to be in memory.
-    """
-
-    @staticmethod
-    def add_argparse_args(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        return KeypointsDataset.add_argparse_args(parent_parser)
-
-    def __init__(
-        self,
-        json_dataset_path: str,
-        image_dataset_path: str,
-        keypoint_channels: Union[List[str], str],
-        keypoint_channel_max_keypoints: Union[List[int], str],
-        n_io_attempts: int = 4,
-        **kwargs,
-    ):
-
-        """
-        n_io_attempts: number of trials to load image from IO
-        """
-        super().__init__(
-            json_dataset_path, image_dataset_path, keypoint_channels, keypoint_channel_max_keypoints, **kwargs
-        )
-        self.n_io_attempts = n_io_attempts
-
-    def get_image(self, index: int) -> np.ndarray:
-        sleep_time_in_seconds = 1
-        for j in range(self.n_io_attempts):
-            try:
-                image = super().get_image(index)  # IO read.
-                return image
-            except IOError:
-                if j == self.n_io_attempts - 1:
-                    raise IOError(f"Could not load image for dataset entry with index {index}")
-
-                sleep_time = max(random.gauss(sleep_time_in_seconds, j), 0)
-                print(
-                    f"caught IOError in {j}th attempt to load image for item {index}, sleeping for {sleep_time} seconds"
-                )
-                time.sleep(sleep_time)
-                sleep_time_in_seconds *= 2
-
-
-class KeypointsDatasetPreloaded(KeypointsDatasetIOCatcher):
-    """
-    The images are preloaded in memory for faster access.
-    This requires the whole dataset to fit into memory, so make sure to have enough memory available.
-
-    """
-
-    @staticmethod
-    def add_argparse_args(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        return KeypointsDatasetIOCatcher.add_argparse_args(parent_parser)
-
-    def __init__(
-        self,
-        json_dataset_path: str,
-        image_dataset_path: str,
-        keypoint_channels: Union[List[str], str],
-        keypoint_channel_max_keypoints: Union[List[int], str],
-        **kwargs,
-    ):
-
-        """
-        n_io_attempts: number of trials to load image from IO
-        """
-        super().__init__(
-            json_dataset_path, image_dataset_path, keypoint_channels, keypoint_channel_max_keypoints, **kwargs
-        )
-        """
-        n_io_attempts: number of trials to load image from IO
-        """
-        super().__init__(
-            json_dataset_path, image_dataset_path, keypoint_channels, keypoint_channel_max_keypoints, **kwargs
-        )
-        self.preloaded_images = [None] * len(self.dataset)
-        self._preload()
-
-    def _preload(self):
-        """
-        load images into memory as np.ndarrays.
-        Choice to load them as np.ndarrays is because pytorch uses float32 for each value whereas
-        the original values are only 8 bit ints, so this is a 4 times increase in size..
-        """
-
-        print("preloading dataset images")
-        for i in tqdm.trange(len(self)):
-            self.preloaded_images[i] = super().get_image(i)
-        print("dataset images preloaded")
-
-    def get_image(self, index: int) -> np.ndarray:
-        return self.preloaded_images[index]
