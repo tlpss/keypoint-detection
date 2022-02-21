@@ -98,3 +98,7 @@ class TestModel(unittest.TestCase):
 
         ap = metric.compute()
         self.assertEqual(ap, 1.0)
+
+
+# TODO: test model initial values
+# TODO: test model train script

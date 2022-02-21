@@ -94,7 +94,7 @@ The first is to run the `train.py` script with the appropriate arguments. e.g. f
  to test on the provided test dataset, which contains 4 images. You should see the loss going down consistently until the detector has completely overfit the train set and the loss is around the entropy of the ground truth heatmaps (if you selected the default BCE loss).
 
 The second method is to create a sweep on [wandb](https://wandb.ai) and to then start the sweep from the correct relative location.
-A minimal sweep example  is given in `keypoint_detection/train/example-wandb-sweep-config.yaml`. The sweep can be started by running `wandb agent <sweep-id>` from your CLI.
+A minimal sweep example  is given in `test/configuration.py`. The same content should be written to a yaml file according to the wandb format. The sweep can be started by running `wandb agent <sweep-id>` from your CLI.
 
 
 ### Train on your own dataset
