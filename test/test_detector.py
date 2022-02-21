@@ -1,4 +1,3 @@
-import os
 import unittest
 
 import pytorch_lightning as pl
@@ -12,6 +11,8 @@ from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import bce_loss
 from keypoint_detection.models.metrics import KeypointAPMetric
 from keypoint_detection.utils.heatmap import generate_keypoints_heatmap
+
+from .configuration import DEFAULT_HPARAMS
 
 
 class TestHeatmapUtils(unittest.TestCase):
@@ -46,27 +47,12 @@ class TestHeatmapUtils(unittest.TestCase):
 
 class TestModel(unittest.TestCase):
     def setUp(self) -> None:
-        self.sigma = 3
-        TEST_DIR = os.path.dirname(os.path.abspath(__file__))
-        self.channels = "corner_keypoints flap_corner_keypoints"
-        self.max_keypoints_channel = "4 8"
         self.backbone = DilatedCnn()
         self.loss_function = bce_loss
-        self.model = KeypointDetector(
-            self.sigma, "2.0", 1, 3e-4, self.backbone, self.loss_function, self.channels, 1, 1
-        )
+        self.hparams = DEFAULT_HPARAMS
+        self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
 
-        self.module = RandomSplitDataModule(
-            KeypointsDataset(
-                os.path.join(TEST_DIR, "test_dataset/dataset.json"),
-                os.path.join(TEST_DIR, "test_dataset"),
-                self.channels,
-                self.max_keypoints_channel,
-            ),
-            2,
-            0.5,
-            2,
-        )
+        self.module = RandomSplitDataModule(KeypointsDataset(**self.hparams), **self.hparams)
 
     def test_shared_step_batch(self):
 
@@ -88,13 +74,12 @@ class TestModel(unittest.TestCase):
 
         model = self.model
 
-        if torch.cuda.is_available():
-            gpus = 1
-        else:
-            gpus = 0
-        print(gpus)
-
-        trainer = pl.Trainer(max_epochs=2, log_every_n_steps=1, gpus=gpus, logger=wandb_logger)
+        trainer = pl.Trainer(
+            max_epochs=self.hparams["max_epochs"],
+            log_every_n_steps=self.hparams["log_every_n_steps"],
+            gpus=self.hparams["gpus"],
+            logger=wandb_logger,
+        )
         trainer.fit(model, self.module)
 
         batch = next(iter(self.module.train_dataloader()))

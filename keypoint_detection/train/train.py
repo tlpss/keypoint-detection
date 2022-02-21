@@ -7,7 +7,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer.trainer import Trainer
 
 from keypoint_detection.data.datamodule import RandomSplitDataModule
-from keypoint_detection.data.dataset import KeypointsDatasetPreloaded
+from keypoint_detection.data.dataset import KeypointsDataset
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import LossFactory
@@ -50,7 +50,7 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     loss = LossFactory.create_loss(**hparams)
     model = KeypointDetector(backbone=backbone, loss_function=loss, **hparams)
 
-    dataset = KeypointsDatasetPreloaded(**hparams)
+    dataset = KeypointsDataset(**hparams)
 
     module = RandomSplitDataModule(dataset, **hparams)
     wandb_logger = WandbLogger(
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     parser = add_system_args(parser)
     parser = KeypointDetector.add_model_argparse_args(parser)
     parser = Trainer.add_argparse_args(parser)
-    parser = KeypointsDatasetPreloaded.add_argparse_args(parser)
+    parser = KeypointsDataset.add_argparse_args(parser)
     parser = RandomSplitDataModule.add_argparse_args(parser)
     parser = BackboneFactory.add_to_argparse(parser)
     parser = LossFactory.add_to_argparse(parser)

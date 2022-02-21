@@ -1,4 +1,3 @@
-import os
 import unittest
 
 import torch
@@ -6,15 +5,12 @@ import torch
 from keypoint_detection.data.datamodule import RandomSplitDataModule
 from keypoint_detection.data.dataset import KeypointsDataset
 
+from .configuration import DEFAULT_HPARAMS
+
 
 class TestDataModule(unittest.TestCase):
     def setUp(self):
-        TEST_DIR = os.path.dirname(os.path.abspath(__file__))
-        self.json_path = os.path.join(TEST_DIR, "test_dataset/dataset.json")
-        self.image_path = os.path.join(TEST_DIR, "test_dataset")
-        self.dataset = KeypointsDataset(
-            self.json_path, self.image_path, "corner_keypoints flap_corner_keypoints", "-1 8 "
-        )
+        self.dataset = KeypointsDataset(**DEFAULT_HPARAMS)
 
     def test_split(self):
         module = RandomSplitDataModule(self.dataset, 1, 0.0, 2)
