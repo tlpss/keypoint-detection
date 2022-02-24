@@ -7,6 +7,7 @@ from pytorch_lightning.loggers import WandbLogger
 from keypoint_detection.data.datamodule import RandomSplitDataModule
 from keypoint_detection.data.dataset import KeypointsDataset
 from keypoint_detection.models.backbones.dilated_cnn import DilatedCnn
+from keypoint_detection.models.backbones.unet import UnetBackbone
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import bce_loss
 from keypoint_detection.models.metrics import KeypointAPMetric
@@ -27,8 +28,8 @@ class TestHeatmapUtils(unittest.TestCase):
         )
         self.channels = "corner_keypoints flap_corner_keypoints"
         self.max_keypoints_channel = "4 8"
-        self.backbone = DilatedCnn()
         self.loss_function = bce_loss
+        self.backbone = DilatedCnn()
         self.model = KeypointDetector(
             self.sigma, "2.0", 1, 3e-4, self.backbone, self.loss_function, self.channels, 1, 1
         )
@@ -47,9 +48,9 @@ class TestHeatmapUtils(unittest.TestCase):
 
 class TestModel(unittest.TestCase):
     def setUp(self) -> None:
-        self.backbone = DilatedCnn()
         self.loss_function = bce_loss
         self.hparams = DEFAULT_HPARAMS
+        self.backbone = UnetBackbone(**self.hparams)
         self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
 
         self.module = RandomSplitDataModule(KeypointsDataset(**self.hparams), **self.hparams)
@@ -98,6 +99,16 @@ class TestModel(unittest.TestCase):
 
         ap = metric.compute()
         self.assertEqual(ap, 1.0)
+
+    def test_initial_values(self):
+        detector = self.model
+
+        random_batch = torch.randn(1, 3, 100, 100)
+
+        heatmap = detector(random_batch)
+
+        self.assertTrue(torch.mean(heatmap).item() < 0.1)
+        self.assertTrue(torch.var(heatmap).item() < 0.1)
 
 
 # TODO: test model initial values

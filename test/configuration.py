@@ -26,4 +26,11 @@ DEFAULT_HPARAMS = {
     "heatmap_sigma": 1,
     "minimal_keypoint_extraction_pixel_distance": 1,
     "maximal_gt_keypoint_pixel_distances": "2 4",
+    "n_channels_in": 3,
+    "n_downsampling_layers": 2,
+    "n_resnet_blocks": 2,
+    "n_channels": 4,
+    "kernel_size": 3,
+    "dilation": 1,
+    "random-arg-to-test": "random",
 }

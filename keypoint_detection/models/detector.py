@@ -133,7 +133,12 @@ class KeypointDetector(pl.LightningModule):
             padding="same",
         )
 
-        head.bias.data.fill_(0.0)  # initialize to zeros.
+        # expect output of backbone to be normalized!
+
+        # so by filling bias to -4, the sigmoid should be on avg sigmoid(-4) =  0.02
+        # which is consistent with the desired heatmaps that are zero almost everywhere.
+        # setting too low would result in loss of gradients..
+        head.bias.data.fill_(-4)
 
         self.model = nn.Sequential(
             backbone,

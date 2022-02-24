@@ -35,3 +35,7 @@ class TestBackbones(unittest.TestCase):
         ).to(self.device)
         output = backbone(self.x).cpu()
         self.assertEqual((output.shape), (4, 4, 64, 64))
+
+        # check if normalized
+        self.assertAlmostEqual(torch.mean(output).item(), 0.0, places=2)
+        self.assertAlmostEqual(torch.var(output).item(), 1.0, places=2)
