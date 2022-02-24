@@ -9,7 +9,7 @@ from keypoint_detection.models.backbones.unet import UnetBackbone
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import bce_loss
 from keypoint_detection.models.metrics import KeypointAPMetric
-from keypoint_detection.train.utils import create_pl_trainer_from_args
+from keypoint_detection.train.utils import create_pl_trainer
 from keypoint_detection.utils.heatmap import generate_keypoints_heatmap
 
 from .configuration import DEFAULT_HPARAMS
@@ -73,7 +73,7 @@ class TestModel(unittest.TestCase):
 
         model = self.model
 
-        trainer = create_pl_trainer_from_args(self.hparams, wandb_logger)
+        trainer = create_pl_trainer(self.hparams, wandb_logger)
         trainer.fit(model, self.module)
 
         batch = next(iter(self.module.train_dataloader()))

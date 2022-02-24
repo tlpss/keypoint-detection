@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 
 from keypoint_detection.models.detector import KeypointDetector
@@ -55,10 +55,10 @@ class RelativeEarlyStopping(EarlyStopping):
         return msg
 
 
-def create_pl_trainer_from_args(hparams: dict, wandb_logger: WandbLogger) -> Trainer:
+def create_pl_trainer(hparams: dict, wandb_logger: WandbLogger) -> Trainer:
     """
     function that creates a pl.Trainer instance from the given global hyperparameters and logger
-    and adds the specified callbacks.
+    and adds some callbacks.
     """
 
     valid_kwargs = inspect.signature(Trainer.__init__).parameters
@@ -74,5 +74,9 @@ def create_pl_trainer_from_args(hparams: dict, wandb_logger: WandbLogger) -> Tra
         verbose=True,
         mode="min",
     )
-    trainer = pl.Trainer(**trainer_kwargs, callbacks=[early_stopping])
+    # cf https://pytorch-lightning.readthedocs.io/en/latest/api/pytorch_lightning.loggers.wandb.html
+
+    checkpoint_callback = ModelCheckpoint(monitor="validation/epoch_loss", mode="min")
+
+    trainer = pl.Trainer(**trainer_kwargs, callbacks=[early_stopping, checkpoint_callback])
     return trainer

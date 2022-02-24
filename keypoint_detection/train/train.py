@@ -11,7 +11,7 @@ from keypoint_detection.data.dataset import KeypointsDataset
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import LossFactory
-from keypoint_detection.train.utils import create_pl_trainer_from_args
+from keypoint_detection.train.utils import create_pl_trainer
 
 
 def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
@@ -63,9 +63,9 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
         dir=KeypointDetector.get_wandb_log_dir_path(),
-        log_model=True,
+        log_model="all",  # log all checkpoints made by PL, see create_trainer for callback
     )
-    trainer = create_pl_trainer_from_args(hparams, wandb_logger)
+    trainer = create_pl_trainer(hparams, wandb_logger)
     trainer.fit(model, module)
     return model, trainer
 
