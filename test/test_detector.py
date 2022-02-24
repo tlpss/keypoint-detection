@@ -5,7 +5,6 @@ from pytorch_lightning.loggers import WandbLogger
 
 from keypoint_detection.data.datamodule import RandomSplitDataModule
 from keypoint_detection.data.dataset import KeypointsDataset
-from keypoint_detection.models.backbones.dilated_cnn import DilatedCnn
 from keypoint_detection.models.backbones.unet import UnetBackbone
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import bce_loss
@@ -26,13 +25,12 @@ class TestHeatmapUtils(unittest.TestCase):
         self.heatmaps = generate_keypoints_heatmap(
             (self.image_height, self.image_width), self.keypoints, self.sigma, "cpu"
         )
-        self.channels = "corner_keypoints flap_corner_keypoints"
-        self.max_keypoints_channel = "4 8"
         self.loss_function = bce_loss
-        self.backbone = DilatedCnn()
-        self.model = KeypointDetector(
-            self.sigma, "2.0", 1, 3e-4, self.backbone, self.loss_function, self.channels, 1, 1
-        )
+        self.hparams = DEFAULT_HPARAMS
+        self.backbone = UnetBackbone(**self.hparams)
+        self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
+
+        self.module = RandomSplitDataModule(KeypointsDataset(**self.hparams), **self.hparams)
 
     def test_perfect_heatmap(self):
         loss = self.model.heatmap_loss(self.heatmaps, self.heatmaps)

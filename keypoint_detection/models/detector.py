@@ -62,7 +62,12 @@ class KeypointDetector(pl.LightningModule):
             default=10,
             help="Rate at which to calculate the AP metric if epoch > `ap_epoch_start`",
         )
-
+        parser.add_argument(
+            "--lr_scheduler_relative_threshold",
+            default=0.0,
+            type=float,
+            help="relative threshold for the OnPlateauLRScheduler. If the training epoch loss does not decrease with this fraction for 2 consective epochs, lr is decreased with factor 10.",
+        )
         return parent_parser
 
     def __init__(
@@ -74,8 +79,9 @@ class KeypointDetector(pl.LightningModule):
         backbone: Backbone,
         loss_function,
         keypoint_channels: Union[str, List[str]],
-        ap_epoch_start,
-        ap_epoch_freq,
+        ap_epoch_start: int,
+        ap_epoch_freq: int,
+        lr_scheduler_relative_threshold: float,
         **kwargs,
     ):
         """[summary]
@@ -106,6 +112,7 @@ class KeypointDetector(pl.LightningModule):
         self.ap_epoch_freq = ap_epoch_freq
         self.minimal_keypoint_pixel_distance = minimal_keypoint_extraction_pixel_distance
         self.heatmap_loss = loss_function
+        self.lr_scheduler_relative_threshold = lr_scheduler_relative_threshold
 
         if isinstance(keypoint_channels, list):
             self.keypoint_channels = keypoint_channels
@@ -162,7 +169,13 @@ class KeypointDetector(pl.LightningModule):
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), self.learning_rate)
         self.lr_scheduler = ReduceLROnPlateau(
-            self.optimizer, threshold=1e-3, threshold_mode="rel", mode="min", factor=0.1, patience=2, verbose=True
+            self.optimizer,
+            threshold=self.lr_scheduler_relative_threshold,
+            threshold_mode="rel",
+            mode="min",
+            factor=0.1,
+            patience=2,
+            verbose=True,
         )
         return {
             "optimizer": self.optimizer,

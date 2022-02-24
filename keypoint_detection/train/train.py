@@ -36,6 +36,12 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
         type=str,
         help="The maximal number of keypoints within each channel, used to pad the keypoint tensor if the number of (visible) keypoints is not constant. If the number of keypoints is the same for each instance, provide -1 for optimal performance. Separate the names with a space.",
     )
+
+    parser.add_argument(
+        "--early_stopping_relative_threshold",
+        default="0.0",
+        help="relative threshold for early stopping callback. If validation epoch loss does not increase with at least this fraction compared to the best result so far for 5 consecutive epochs, training is stopped.",
+    )
     return parent_parser
 
 
