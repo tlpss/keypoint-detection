@@ -29,8 +29,6 @@ class KeypointDetector(pl.LightningModule):
         """
         parser = parent_parser.add_argument_group("KeypointDetector")
 
-        # TODO: add these with inspection to avoid manual duplication!
-
         parser.add_argument(
             "--heatmap_sigma",
             default=2,
@@ -142,7 +140,6 @@ class KeypointDetector(pl.LightningModule):
         )
 
         # expect output of backbone to be normalized!
-
         # so by filling bias to -4, the sigmoid should be on avg sigmoid(-4) =  0.02
         # which is consistent with the desired heatmaps that are zero almost everywhere.
         # setting too low would result in loss of gradients..
@@ -181,7 +178,7 @@ class KeypointDetector(pl.LightningModule):
             "optimizer": self.optimizer,
             "lr_scheduler": {
                 "scheduler": self.lr_scheduler,
-                "monitor": "train/epoch_loss",
+                "monitor": "train/loss_epoch",
                 "frequency": 1
                 # If "monitor" references validation metrics, then "frequency" should be set to a
                 # multiple of "trainer.check_val_every_n_epoch".
@@ -262,9 +259,9 @@ class KeypointDetector(pl.LightningModule):
         for channel_name in self.keypoint_channels:
             self.log(f"train/{channel_name}", result_dict[f"{channel_name}_loss"])
 
-        self.log("train/loss", result_dict["loss"])
+        # self.log("train/loss", result_dict["loss"])
         self.log("train/gt_loss", result_dict["gt_loss"])
-        self.log("train/epoch_loss", result_dict["loss"], on_epoch=True)
+        self.log("train/loss", result_dict["loss"], on_epoch=True)  # also logs steps?
         return result_dict
 
     def validation_step(self, val_batch, batch_idx):

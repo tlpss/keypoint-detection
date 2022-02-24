@@ -35,7 +35,9 @@ class RandomSplitDataModule(pl.LightningDataModule):
         return dataloader
 
     def val_dataloader(self):
-        dataloader = DataLoader(self.validation_dataset, self.batch_size, shuffle=False, num_workers=self.num_workers)
+        # num workers to zero to avoid non-reproducibility bc of random seeds for workers
+        # cf. https://pytorch.org/docs/stable/notes/randomness.html
+        dataloader = DataLoader(self.validation_dataset, self.batch_size, shuffle=False, num_workers=0)
         return dataloader
 
     def test_dataloader(self):

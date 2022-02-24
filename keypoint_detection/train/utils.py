@@ -47,7 +47,7 @@ class RelativeEarlyStopping(EarlyStopping):
         """Formats a log message that informs the user about an improvement in the monitored score."""
         if torch.isfinite(self.best_score):
             msg = (
-                f"Metric {self.monitor} improved by {abs(self.best_score - current)/self.best_score:.3f} % >="
+                f"Metric {self.monitor} improved {abs(self.best_score - current)/self.best_score:.3f} times >="
                 f" min_delta = {abs(self.min_delta)}. New best score: {current:.7f}"
             )
         else:
