@@ -160,12 +160,15 @@ class KeypointDetector(pl.LightningModule):
         return self.model(x)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), self.learning_rate)
+        self.optimizer = torch.optim.Adam(self.parameters(), self.learning_rate)
+        self.lr_scheduler = ReduceLROnPlateau(
+            self.optimizer, threshold=1e-3, threshold_mode="rel", mode="min", factor=0.1, patience=2, verbose=True
+        )
         return {
-            "optimizer": optimizer,
+            "optimizer": self.optimizer,
             "lr_scheduler": {
-                "scheduler": ReduceLROnPlateau(optimizer, mode="min", factor=0.1, patience=2, verbose=True),
-                "monitor": "validation/epoch_loss",
+                "scheduler": self.lr_scheduler,
+                "monitor": "train/epoch_loss",
                 "frequency": 1
                 # If "monitor" references validation metrics, then "frequency" should be set to a
                 # multiple of "trainer.check_val_every_n_epoch".
@@ -248,6 +251,7 @@ class KeypointDetector(pl.LightningModule):
 
         self.log("train/loss", result_dict["loss"])
         self.log("train/gt_loss", result_dict["gt_loss"])
+        self.log("train/epoch_loss", result_dict["loss"], on_epoch=True)
         return result_dict
 
     def validation_step(self, val_batch, batch_idx):
