@@ -86,7 +86,7 @@ def get_keypoints_from_heatmap(
     else:
         num_peaks = 20
     keypoints = peak_local_max(
-        np_heatmap, min_distance=min_keypoint_pixel_distance, threshold_rel=0.05, num_peaks=num_peaks
+        np_heatmap, min_distance=min_keypoint_pixel_distance, threshold_rel=0.1, threshold_abs=0.1, num_peaks=num_peaks
     )
     return keypoints[::, ::-1].tolist()  # convert to (u,v) aka (col,row) coord frame from (row,col)
 

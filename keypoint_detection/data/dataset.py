@@ -1,12 +1,9 @@
 import argparse
 import json
-import os
 from pathlib import Path
 from typing import List, Union
 
-import numpy as np
 import torch
-from skimage import io
 from torchvision.transforms import ToTensor
 
 from keypoint_detection.data.utils import ImageDataset, ImageLoader, IOSafeImageLoaderDecorator
@@ -103,7 +100,8 @@ class KeypointsDataset(ImageDataset):
             index = index.tolist()
         index = int(index)
 
-        image = self.get_image(index)
+        image_path = Path(".") / self.image_dir / self.dataset[index]["image_path"]
+        image = self.image_loader.get_image(image_path, index)
         image = self.transform(image)
 
         # read keypoints
@@ -120,12 +118,3 @@ class KeypointsDataset(ImageDataset):
             keypoints.append(kp)
 
         return image, keypoints
-
-    def get_image(self, index: int) -> np.ndarray:
-        """
-        read the image from disk and return as np array
-        """
-        # load images @runtime from disk
-        image_path = os.path.join(os.getcwd(), self.image_dir, self.dataset[index]["image_path"])
-        image = io.imread(image_path)
-        return image

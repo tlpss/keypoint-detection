@@ -5,7 +5,7 @@ import torch
 from keypoint_detection.data.dataset import KeypointsDataset
 
 
-class UnlabeledBoxDataset(KeypointsDataset):
+class UnlabeledKeypointsDataset(KeypointsDataset):
     """
     Simple dataset to run inference on unlabeled data
     """

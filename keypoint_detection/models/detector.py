@@ -133,6 +133,8 @@ class KeypointDetector(pl.LightningModule):
             padding="same",
         )
 
+        head.bias.data.fill_(0.0)  # initialize to zeros.
+
         self.model = nn.Sequential(
             backbone,
             head,

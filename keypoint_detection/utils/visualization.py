@@ -1,8 +1,8 @@
 import pytorch_lightning.loggers
 import torch
 import torchvision
-import wandb
 
+import wandb
 from keypoint_detection.utils.heatmap import (
     generate_keypoints_heatmap,
     get_keypoints_from_heatmap,
