@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple, Union
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.metrics import DetectedKeypoint, Keypoint, KeypointAPMetrics
@@ -160,7 +161,16 @@ class KeypointDetector(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), self.learning_rate)
-        return optimizer
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": ReduceLROnPlateau(optimizer, mode="min", factor=0.1, patience=2, verbose=True),
+                "monitor": "validation/epoch_loss",
+                "frequency": 1
+                # If "monitor" references validation metrics, then "frequency" should be set to a
+                # multiple of "trainer.check_val_every_n_epoch".
+            },
+        }
 
     def shared_step(self, batch, batch_idx, validate=False) -> Dict[str, Any]:
         """

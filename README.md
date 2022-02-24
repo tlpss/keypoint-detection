@@ -108,6 +108,9 @@ Provide at least the names of the keypoint classes (channels) in your dataset yo
 ### vscode development container
 For ease of use and in order to not pollute the OS, a [devcontainer]() configuration is included for vscode (see `.devcontainer`).
 
+### submodules
+- set to track main branch of keypoint detector
+- update to latest commit on branch : `git submodule update --remote`
 ### Formatting, testing
 
 - formatting and linting is done using [pre-commit](https://pre-commit.com/)

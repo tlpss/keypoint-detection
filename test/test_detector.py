@@ -1,6 +1,5 @@
 import unittest
 
-import pytorch_lightning as pl
 import torch
 from pytorch_lightning.loggers import WandbLogger
 
@@ -11,6 +10,7 @@ from keypoint_detection.models.backbones.unet import UnetBackbone
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import bce_loss
 from keypoint_detection.models.metrics import KeypointAPMetric
+from keypoint_detection.train.utils import create_pl_trainer_from_args
 from keypoint_detection.utils.heatmap import generate_keypoints_heatmap
 
 from .configuration import DEFAULT_HPARAMS
@@ -75,12 +75,7 @@ class TestModel(unittest.TestCase):
 
         model = self.model
 
-        trainer = pl.Trainer(
-            max_epochs=self.hparams["max_epochs"],
-            log_every_n_steps=self.hparams["log_every_n_steps"],
-            gpus=self.hparams["gpus"],
-            logger=wandb_logger,
-        )
+        trainer = create_pl_trainer_from_args(self.hparams, wandb_logger)
         trainer.fit(model, self.module)
 
         batch = next(iter(self.module.train_dataloader()))
@@ -111,5 +106,4 @@ class TestModel(unittest.TestCase):
         self.assertTrue(torch.var(heatmap).item() < 0.1)
 
 
-# TODO: test model initial values
 # TODO: test model train script
