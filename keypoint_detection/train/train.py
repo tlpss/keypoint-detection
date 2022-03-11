@@ -39,7 +39,8 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
 
     parser.add_argument(
         "--early_stopping_relative_threshold",
-        default="0.0",
+        default=0.0,
+        type=float,
         help="relative threshold for early stopping callback. If validation epoch loss does not increase with at least this fraction compared to the best result so far for 5 consecutive epochs, training is stopped.",
     )
     return parent_parser
