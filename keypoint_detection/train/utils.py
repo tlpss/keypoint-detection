@@ -70,7 +70,7 @@ def create_pl_trainer(hparams: dict, wandb_logger: WandbLogger) -> Trainer:
     early_stopping = RelativeEarlyStopping(
         monitor="validation/epoch_loss",
         patience=5,
-        min_relative_delta=hparams["early_stopping_relative_threshold"],
+        min_relative_delta=float(hparams["early_stopping_relative_threshold"]),
         verbose=True,
         mode="min",
     )
