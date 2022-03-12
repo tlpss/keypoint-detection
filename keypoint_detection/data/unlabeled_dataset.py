@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Union
 
 import torch
@@ -27,8 +28,9 @@ class UnlabeledKeypointsDataset(KeypointsDataset):
         if torch.is_tensor(index):
             index = index.tolist()
         index = int(index)
+        image_path = Path(".") / self.image_dir / self.dataset[index]["image_path"]
 
-        image = self.get_image(index)
+        image = self.image_loader.get_image(image_path, index)
         image = self.transform(image)
 
         return image
