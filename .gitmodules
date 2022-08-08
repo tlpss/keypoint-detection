@@ -1,4 +1,0 @@
-[submodule ".devcontainer/docker"]
-	path = .devcontainer/docker
-	url = https://gitlab.ilabt.imec.be/tlips/gpulab.git
-	branch = main
