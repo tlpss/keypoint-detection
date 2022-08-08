@@ -2,10 +2,10 @@ from argparse import ArgumentParser
 from typing import Tuple
 
 import pytorch_lightning as pl
+import wandb
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer.trainer import Trainer
 
-import wandb
 from keypoint_detection.data.datamodule import RandomSplitDataModule
 from keypoint_detection.data.dataset import KeypointsDataset
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory

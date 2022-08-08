@@ -28,7 +28,6 @@ class KeypointsDataset(ImageDataset):
             required=False,
             type=str,
             help="Absolute path to the base dir from where the images are referenced in the json file of the dataset.",
-
         )
         parser.add_argument(
             "--json_dataset_path",

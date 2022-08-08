@@ -16,12 +16,15 @@ repos:
         name: autoflake - remove unused imports and variables
         entry: autoflake --remove-all-unused-imports --recursive --remove-unused-variables --in-place --ignore-init-module-imports
         files: \.py$
+
 -   repo: https://github.com/PyCQA/isort
     rev: 5.10.1
     hooks:
     -   id: isort
         name: isort - sort imports
         entry: isort --profile black --line-length 119
+        args:
+            - --thirdparty=wandb # https://github.com/PyCQA/isort/issues/1619 wandb creates local folder w/ same name, which fools isort
         files: \.py$
 -   repo: https://github.com/psf/black
     rev: 22.6.0
