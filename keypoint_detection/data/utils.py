@@ -69,7 +69,7 @@ class CachedImageLoaderDecorator(BaseImageLoaderDecorator):
         self.cache_index_mapping = {}
 
     def get_image(self, path: str, idx: int) -> np.ndarray:
-        if not path in self.cache_index_mapping:
+        if path not in self.cache_index_mapping:
             img = super().get_image(path, idx)
             self.cache.append(img)
             self.cache_index_mapping.update({path: len(self.cache) - 1})
