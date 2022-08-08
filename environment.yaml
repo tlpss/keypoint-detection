@@ -17,4 +17,5 @@ dependencies:
     - pytorch-lightning==1.5.10
     - torchmetrics==0.7.2
     - scikit-image==0.19.1
+    - git+https://github.com/rwightman/pytorch-image-models.git # need 0.6.8 for small convnext models and it hasn't been release yet
     - -e .

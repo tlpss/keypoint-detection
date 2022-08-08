@@ -2,6 +2,7 @@ import unittest
 
 import torch
 
+from keypoint_detection.models.backbones.convnext_unet import ConvNeXtUnet
 from keypoint_detection.models.backbones.dilated_cnn import DilatedCnn
 from keypoint_detection.models.backbones.s3k import S3K
 from keypoint_detection.models.backbones.unet import UnetBackbone
@@ -39,3 +40,10 @@ class TestBackbones(unittest.TestCase):
         # check if normalized
         self.assertAlmostEqual(torch.mean(output).item(), 0.0, places=2)
         self.assertAlmostEqual(torch.var(output).item(), 1.0, places=2)
+
+    def test_convnext_unet(self):
+        backbone = ConvNeXtUnet().to(self.device)
+        output = backbone(self.x).cpu()
+
+        self.assertEqual(output.shape[-1], 64)
+        self.assertEqual(output.shape[1], backbone.get_n_channels_out())

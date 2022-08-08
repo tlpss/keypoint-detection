@@ -1,6 +1,7 @@
 import argparse
 
 from keypoint_detection.models.backbones.base_backbone import Backbone
+from keypoint_detection.models.backbones.convnext_unet import ConvNeXtUnet
 from keypoint_detection.models.backbones.dilated_cnn import DilatedCnn
 from keypoint_detection.models.backbones.s3k import S3K
 from keypoint_detection.models.backbones.unet import UnetBackbone
@@ -15,6 +16,8 @@ class BackboneFactory:
             return S3K()
         elif backbone_type == "Unet":
             return UnetBackbone(**kwargs)
+        elif backbone_type == "Convnext-Unet":
+            return ConvNeXtUnet()
         else:
             raise Exception("Unknown backbone type")
 
