@@ -1,4 +1,4 @@
-name: python39
+name: keypoint-detection
 channels:
   - pytorch
   - conda-forge

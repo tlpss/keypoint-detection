@@ -19,7 +19,7 @@ jobs:
             hashFiles('environment.yaml') }}
       - uses: conda-incubator/setup-miniconda@v2
         with:
-          activate-environment: python39
+          activate-environment: keypoint-detection
           channel-priority: strict
           auto-activate-base: false
           environment-file: environment.yaml
