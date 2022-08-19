@@ -12,6 +12,7 @@ from keypoint_detection.models.metrics import KeypointAPMetric
 from keypoint_detection.train.utils import create_pl_trainer
 from keypoint_detection.utils.heatmap import generate_keypoints_heatmap
 
+from .configuration import DEFAULT_HPARAMS
 
 class TestHeatmapUtils(unittest.TestCase):
     def setUp(self) -> None:
@@ -100,17 +101,3 @@ class TestModel(unittest.TestCase):
 
         self.assertTrue(torch.mean(heatmap).item() < 0.1)
         self.assertTrue(torch.var(heatmap).item() < 0.1)
-
-
-if __name__ == "__main__":
-    import os
-
-    command = (
-        "python keypoint_detection/train/train.py --keypoint_channels 'corner_keypoints flap_corner_keypoints'"
-        "--keypoint_channel_max_keypoints '-1 -1'"
-        "--image_dataset_path test/test_dataset"
-        "--json_dataset_path test/test_dataset/dataset.json"
-        " --batch_size  1"
-    )
-    print(command)
-    os.system(command)
