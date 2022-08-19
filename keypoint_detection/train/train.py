@@ -63,7 +63,7 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     wandb_logger = WandbLogger(
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
-        dir=KeypointDetector.get_wandb_log_dir_path(),
+        save_dir=KeypointDetector.get_wandb_log_dir_path(),
         log_model="all",  # log all checkpoints made by PL, see create_trainer for callback
     )
     trainer = create_pl_trainer(hparams, wandb_logger)

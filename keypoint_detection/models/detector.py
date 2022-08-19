@@ -1,4 +1,5 @@
 import argparse
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
@@ -301,11 +302,17 @@ class KeypointDetector(pl.LightningModule):
     ##################
     @classmethod
     def get_artifact_dir_path(cls) -> Path:
-        return Path(__file__).resolve().parents[2] / "artifacts"
+        path = Path(__file__).resolve().parents[2] / "logging" / "artifacts"
+        if not os.path.exists(path):
+            path.mkdir(parents=True)
+        return str(path)
 
     @classmethod
     def get_wandb_log_dir_path(cls) -> Path:
-        return Path(__file__).resolve().parents[2]
+        path = Path(__file__).resolve().parents[2] / "logging" / "wandb"
+        if not os.path.exists(path):
+            path.mkdir(parents=True)
+        return str(path)
 
     def update_ap_metrics(
         self, predicted_heatmaps: torch.Tensor, gt_keypoints: torch.Tensor, validation_metric: KeypointAPMetrics
