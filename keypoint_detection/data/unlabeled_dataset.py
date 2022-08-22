@@ -1,9 +1,7 @@
-from pathlib import Path
-from typing import List, Union
 import os
+
 import torch
 from torchvision.transforms import ToTensor
-
 
 from keypoint_detection.data.utils import ImageDataset
 
@@ -20,10 +18,9 @@ class UnlabeledKeypointsDataset(ImageDataset):
     ):
         super().__init__()
         self.image_paths = os.listdir(image_dataset_path)
-        self.image_paths = [image_dataset_path  +f"/{path}" for path in self.image_paths]
+        self.image_paths = [image_dataset_path + f"/{path}" for path in self.image_paths]
 
         self.transform = ToTensor()  # convert images to Torch Tensors
-
 
     def __getitem__(self, index):
         if torch.is_tensor(index):

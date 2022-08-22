@@ -2,8 +2,8 @@ import unittest
 
 import torch
 
-from keypoint_detection.data.datamodule import RandomSplitDataModule
 from keypoint_detection.data.blender_dataset import BlenderKeypointsDataset
+from keypoint_detection.data.datamodule import RandomSplitDataModule
 
 from .configuration import DEFAULT_HPARAMS
 

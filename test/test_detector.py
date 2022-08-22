@@ -3,8 +3,8 @@ import unittest
 import torch
 from pytorch_lightning.loggers import WandbLogger
 
-from keypoint_detection.data.datamodule import RandomSplitDataModule
 from keypoint_detection.data.blender_dataset import BlenderKeypointsDataset
+from keypoint_detection.data.datamodule import RandomSplitDataModule
 from keypoint_detection.models.backbones.unet import UnetBackbone
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import bce_loss
@@ -13,6 +13,7 @@ from keypoint_detection.train.utils import create_pl_trainer
 from keypoint_detection.utils.heatmap import generate_keypoints_heatmap
 
 from .configuration import DEFAULT_HPARAMS
+
 
 class TestHeatmapUtils(unittest.TestCase):
     def setUp(self) -> None:

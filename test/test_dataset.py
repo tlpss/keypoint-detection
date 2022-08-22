@@ -27,10 +27,11 @@ class TestDataSet(unittest.TestCase):
         self.assertTrue(isinstance(img, torch.Tensor))
         self.assertTrue(isinstance(corner, torch.Tensor))
 
+
 class TestUnlabeledDataset(unittest.TestCase):
     def test_dataset(self):
-        dataset = UnlabeledKeypointsDataset(DEFAULT_HPARAMS["image_dataset_path"]  +"/images")
+        dataset = UnlabeledKeypointsDataset(DEFAULT_HPARAMS["image_dataset_path"] + "/images")
 
         self.assertEqual(len(dataset), 4)
         img = dataset[0]
-        self.assertEqual(img.shape, (3,64,64))
+        self.assertEqual(img.shape, (3, 64, 64))
