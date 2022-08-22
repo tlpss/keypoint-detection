@@ -3,9 +3,8 @@ import argparse
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Dataset
-
-
-class RandomSplitDataModule(pl.LightningDataModule):
+from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
+class KeypointsDataModule(pl.LightningDataModule):
     @staticmethod
     def add_argparse_args(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         """
@@ -18,7 +17,7 @@ class RandomSplitDataModule(pl.LightningDataModule):
 
         return parent_parser
 
-    def __init__(self, dataset: Dataset, batch_size, validation_split_ratio, num_workers, **kwargs):
+    def __init__(self, dataset: COCOKeypointsDataset, batch_size, validation_split_ratio, num_workers, **kwargs):
         super().__init__()
         self.dataset = dataset
         self.batch_size = batch_size
@@ -31,13 +30,13 @@ class RandomSplitDataModule(pl.LightningDataModule):
         )
 
     def train_dataloader(self):
-        dataloader = DataLoader(self.train_dataset, self.batch_size, shuffle=True, num_workers=self.num_workers)
+        dataloader = DataLoader(self.train_dataset, self.batch_size, shuffle=True, num_workers=self.num_workers, collate_fn=self.dataset.collate_fn)
         return dataloader
 
     def val_dataloader(self):
         # num workers to zero to avoid non-reproducibility bc of random seeds for workers
         # cf. https://pytorch.org/docs/stable/notes/randomness.html
-        dataloader = DataLoader(self.validation_dataset, self.batch_size, shuffle=False, num_workers=0)
+        dataloader = DataLoader(self.validation_dataset, self.batch_size, shuffle=False, num_workers=0, collate_fn=self.dataset.collate_fn)
         return dataloader
 
     def test_dataloader(self):
