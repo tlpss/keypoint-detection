@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from keypoint_detection.data.json_formats.coco import CocoKeypoints
+from keypoint_detection.data.json_formats.coco_parser import CocoKeypoints
 
 
 class TestCocoParser(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestCocoParser(unittest.TestCase):
     #         CocoKeypoints(**data)
 
     def test_example_coco_json(self):
-        path = Path(__file__).parents[1] / "test_dataset" / "dataset.json"
+        path = Path(__file__).parents[1] / "test_dataset" / "coco_dataset.json"
         with open(path, "r") as file:
             data = json.load(file)
             CocoKeypoints(**data)

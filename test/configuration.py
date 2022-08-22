@@ -13,7 +13,7 @@ DEFAULT_HPARAMS = {
     "max_epochs": 10,
     "log_every_n_steps": 2,
     "gpus": 1 if torch.cuda.is_available() else 0,
-    "json_dataset_path": os.path.join(TEST_DIR, "test_dataset/dataset.json"),
+    "json_dataset_path": os.path.join(TEST_DIR, "test_dataset/blender_dataset.json"),
     "image_dataset_path": os.path.join(TEST_DIR, "test_dataset"),
     "batch_size": 2,
     "validation_split_ratio": 0.25,

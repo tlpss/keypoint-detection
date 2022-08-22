@@ -3,14 +3,14 @@ import unittest
 import torch
 
 from keypoint_detection.data.datamodule import RandomSplitDataModule
-from keypoint_detection.data.dataset import KeypointsDataset
+from keypoint_detection.data.blender_dataset import BlenderKeypointsDataset
 
 from .configuration import DEFAULT_HPARAMS
 
 
 class TestDataModule(unittest.TestCase):
     def setUp(self):
-        self.dataset = KeypointsDataset(**DEFAULT_HPARAMS)
+        self.dataset = BlenderKeypointsDataset(**DEFAULT_HPARAMS)
 
     def test_split(self):
         module = RandomSplitDataModule(self.dataset, 1, 0.0, 2)
