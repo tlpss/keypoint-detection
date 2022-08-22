@@ -3,8 +3,8 @@ import unittest
 import torch
 from pytorch_lightning.loggers import WandbLogger
 
-from keypoint_detection.data.blender_dataset import BlenderKeypointsDataset
-from keypoint_detection.data.datamodule import RandomSplitDataModule
+from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
+from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.unet import UnetBackbone
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import bce_loss
@@ -30,7 +30,7 @@ class TestHeatmapUtils(unittest.TestCase):
         self.backbone = UnetBackbone(**self.hparams)
         self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
 
-        self.module = RandomSplitDataModule(BlenderKeypointsDataset(**self.hparams), **self.hparams)
+        self.module = KeypointsDataModule(COCOKeypointsDataset(**self.hparams), **self.hparams)
 
     def test_perfect_heatmap(self):
         loss = self.model.heatmap_loss(self.heatmaps, self.heatmaps)
@@ -51,7 +51,7 @@ class TestModel(unittest.TestCase):
         self.backbone = UnetBackbone(**self.hparams)
         self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
 
-        self.module = RandomSplitDataModule(BlenderKeypointsDataset(**self.hparams), **self.hparams)
+        self.module = KeypointsDataModule(COCOKeypointsDataset(**self.hparams), **self.hparams)
 
     def test_shared_step_batch(self):
 
@@ -63,7 +63,6 @@ class TestModel(unittest.TestCase):
 
         assert result_dict["loss"]
         assert result_dict["gt_loss"]
-        assert result_dict[f"corner_keypoints_loss"]
 
     def test_train(self):
         """

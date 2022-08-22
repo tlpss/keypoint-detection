@@ -27,12 +27,19 @@ class COCOKeypointsDataset(ImageDataset):
         parser = parent_parser.add_argument_group("BlenderkeypointsDataset")
         parser.add_argument(
             "--json_dataset_path",
-            required=False,
+            required=True,
             type=str,
             help="Absolute path to the json file that defines the dataset according to the COCO format.",
         )
+        parser.add_argument(
+            "--detect_non_visible_keypoints",
+            default=True,
+            type=str,
+            help="detect keypoints with visibility flag = 1? default = True",
+        )
+
         return parent_parser
-    def __init__(self, json_dataset_path: str, keypoint_channels: list[list], imageloader: ImageLoader = None):
+    def __init__(self, json_dataset_path: str, keypoint_channels: list[list], detect_non_visible_keypoints: bool = True, imageloader: ImageLoader = None, **kwargs):
         super().__init__(imageloader)
 
 
@@ -41,6 +48,7 @@ class COCOKeypointsDataset(ImageDataset):
         self.dataset_path =  self.dataset_json_path.parent
 
         self.keypoint_channels =  keypoint_channels
+        self.detect_non_visible_keypoints = detect_non_visible_keypoints
 
         self.dataset = self.prepare_dataset() # idx: (image, list(keypoints/channel))
     
@@ -114,9 +122,18 @@ class COCOKeypointsDataset(ImageDataset):
                 return i
         return -1 
 
-    def is_keypoint_visible(self, keypoint):
-        # TODO: make unvisible but annotated keypoints selectable.
-        return keypoint[2] > 1
+    def is_keypoint_visible(self, keypoint: List) -> bool:
+        """
+        Args:
+            keypoint (list): [u,v,flag]
+
+        Returns:
+            bool: True if current keypoint is considered visible according to the dataset configuration, else False
+        """
+        minimal_flag  =  0
+        if not self.detect_non_visible_keypoints:
+            minimal_flag = 1
+        return keypoint[2] > minimal_flag
             
     @staticmethod
     def split_list_in_keypoints(list_to_split):
@@ -127,7 +144,6 @@ class COCOKeypointsDataset(ImageDataset):
     @staticmethod
     def collate_fn(data):
         """ custom collate function for torch dataloader
-        that padds (NaNs) all lists of keypoints to the maximum number of keypoints in a single channel for the current batch.
 
         Note that it could have been more efficient to padd for each channel separately, but it's not worth the trouble as even 
         for 100 channels with each 100 occurances the padded data size is still < 1kB..
@@ -136,19 +152,25 @@ class COCOKeypointsDataset(ImageDataset):
             data: list of tuples (image, keypoints); image = 3xHxW tensor; keypoints = List(c x list(? keypoints ))
 
         Returns:
-            (images, keypoints) Nx3xHxW, NxCxmax_keypoints_for_any_channel_in_batch x 2; where all are padded with NaNs.
+            (images, keypoints); Images as a torch tensor Nx3xHxW, 
+            keypoints is a nested list of lists. where each item is a tensor (K,2) with K the number of keypoints 
+            for that channel and that sample:
+                
+                List(List(Tensor(K,2))) -> C x N x Tensor(max_keypoints_for_any_channel_in_batch x 2)
+        
+        Note there is no padding, as all values need to be unpacked again in the detector to create all the heatmaps.
         """
         images, keypoints = zip(*data)
 
-        # get max amount of keypoints in any channel for the given batch
-        max_num_keypoints = max(max(len(x) for x in y) for y in keypoints)
-        #padd all keypoints with NaNs and create a single tensor out of them.
-        keypoints = [[pad_tensor_with_nans(torch.tensor(x),max_num_keypoints) for x in y] for y in keypoints]
-        keypoints = torch.stack([torch.stack(x) for x in keypoints])
+        # convert the list of keypoints to a 2D tensor 
+        keypoints = [[torch.tensor(x) for x in y] for y in keypoints]
+        # reorder to have the different keypoint channels as  first dimension 
+        # C x N x K x 2 , K = variable number of keypoints for each (N,C)
+        reordered_keypoints = [[keypoints[i][j] for i in range(len(keypoints))] for j in range(len(keypoints[0]))]
         
         images = torch.stack(images)
 
-        return images, keypoints
+        return images, reordered_keypoints
 
 
 if __name__ == "__main__":
@@ -161,4 +183,5 @@ if __name__ == "__main__":
     print(dataloader)
     imgs, keypoints  =next(iter(dataloader))
     print(imgs.shape)
-    print(keypoints.shape)
+    print(len(keypoints))
+    print(keypoints[0])

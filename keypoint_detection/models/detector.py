@@ -202,9 +202,7 @@ class KeypointDetector(pl.LightningModule):
         channel_keypoints = []
         channel_gt_heatmaps = []
         for channel_idx in range(len(self.keypoint_channels)):
-            num_kp = padded_keypoints[channel_idx].shape[0]
-            unpadded_kp = [unpad_nans_from_tensor(padded_keypoints[channel_idx][j, :, :]) for j in range(num_kp)]
-            channel_keypoints.append(unpadded_kp)
+            channel_keypoints.append(padded_keypoints[channel_idx])
             channel_gt_heatmaps.append(self.create_heatmap_batch(imgs[0].shape[1:], channel_keypoints[channel_idx]))
         imgs = imgs.to(self.device)
 
