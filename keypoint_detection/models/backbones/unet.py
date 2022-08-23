@@ -33,7 +33,9 @@ class MaxPoolDownSamplingBlock(nn.Module):
         x = self.relu(
             x
         )  # activation and pool are commutative (if activation is monotonic), so pool first to reduce calculations
-        x = self.norm(x)  # normalization last, as this is for next layer so we want output to be normed.
+        x = self.norm(
+            x
+        )  # normalization can be used before or after activation: https://forums.fast.ai/t/order-of-layers-in-model/1261/3
 
         return x
 
@@ -62,8 +64,10 @@ class UpSamplingBlock(nn.Module):
         return x
 
 
-class UnetBackbone(Backbone):
-    def __init__(self, n_channels_in, n_downsampling_layers, n_resnet_blocks, n_channels, kernel_size, **kwargs):
+class Unet(Backbone):
+    def __init__(
+        self, n_channels_in=3, n_downsampling_layers=2, n_resnet_blocks=3, n_channels=32, kernel_size=3, **kwargs
+    ):
         super().__init__()
         self.n_channels = n_channels
         self.conv1 = nn.Conv2d(n_channels_in, n_channels, kernel_size, padding="same")
@@ -105,17 +109,9 @@ class UnetBackbone(Backbone):
     def add_to_argparse(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         parser = parent_parser.add_argument_group("UnetBackbone")
         parser.add_argument("--n_channels_in", type=int, default=3)
-        parser.add_argument("--n_channels", type=int, default=16)
+        parser.add_argument("--n_channels", type=int, default=32)
         parser.add_argument("--n_resnet_blocks", type=int, default=3)
         parser.add_argument("--n_downsampling_layers", type=int, default=2)
         parser.add_argument("--kernel_size", type=int, default=3)
 
         return parent_parser
-
-
-if __name__ == "__main__":
-    x = torch.rand(2, 3, 64, 64).to("cuda")
-    model = UnetBackbone(3, 3, 3, 16, 3).to("cuda")
-    print(model)
-    y = model(x)
-    print(y.shape)

@@ -1,37 +1,31 @@
 import argparse
+from typing import List
 
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.backbones.convnext_unet import ConvNeXtUnet
 from keypoint_detection.models.backbones.dilated_cnn import DilatedCnn
 from keypoint_detection.models.backbones.s3k import S3K
-from keypoint_detection.models.backbones.unet import UnetBackbone
+from keypoint_detection.models.backbones.unet import Unet
 
 
 class BackboneFactory:
+    # TODO: how to auto-register with __init__subclass over multiple files?
+    registered_backbone_classes: List[Backbone] = [Unet, ConvNeXtUnet, S3K, DilatedCnn]
+
     @staticmethod
     def create_backbone(backbone_type: str, **kwargs) -> Backbone:
-        if backbone_type == "DilatedCnn":
-            return DilatedCnn(**kwargs)
-        elif backbone_type == "S3K":
-            return S3K()
-        elif backbone_type == "Unet":
-            return UnetBackbone(**kwargs)
-        elif backbone_type == "Convnext-Unet":
-            return ConvNeXtUnet()
-        else:
-            raise Exception("Unknown backbone type")
+        for backbone_class in BackboneFactory.registered_backbone_classes:
+            if backbone_type == backbone_class.__name__:
+                return backbone_class(**kwargs)
+        raise Exception("Unknown backbone type")
 
     @staticmethod
     def add_to_argparse(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        parser = parent_parser.add_argument_group("BackboneFactory")
+        parser = parent_parser.add_argument_group(BackboneFactory.__name__)
         parser.add_argument(
-            "--backbone_type", type=str, default="Unet", help="The Class of the Backbone for the Detector."
+            "--backbone_type", type=str, default=Unet.__name__, help="The Class of the Backbone for the Detector."
         )
-
-        # add all possible backbone hyperparams.
-        # would be better to check at runtime if no arguments of other backbones have been added as these will be ignored
-        parent_parser = DilatedCnn.add_to_argparse(parent_parser)
-        parent_parser = S3K.add_to_argparse(parent_parser)
-        parent_parser = UnetBackbone.add_to_argparse(parent_parser)
-
+        # add all backbone hyperparams.
+        for backbone_class in BackboneFactory.registered_backbone_classes:
+            parent_parser = backbone_class.add_to_argparse(parent_parser)
         return parent_parser
