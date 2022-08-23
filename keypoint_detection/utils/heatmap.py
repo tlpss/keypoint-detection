@@ -1,11 +1,12 @@
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 import torch
-
 from skimage.feature import peak_local_max
 
 
-def create_heatmap_batch(shape: Tuple[int, int], keypoints: List[torch.Tensor],sigma: float, device: torch.device) -> torch.Tensor:
+def create_heatmap_batch(
+    shape: Tuple[int, int], keypoints: List[torch.Tensor], sigma: float, device: torch.device
+) -> torch.Tensor:
     """[summary]
 
     Args:
@@ -16,10 +17,7 @@ def create_heatmap_batch(shape: Tuple[int, int], keypoints: List[torch.Tensor],s
         (torch.Tensor): N x H x W Tensor with N heatmaps
     """
 
-    batch_heatmaps = [
-        generate_channel_heatmap(shape, keypoints[i], sigma, device)
-        for i in range(len(keypoints))
-    ]
+    batch_heatmaps = [generate_channel_heatmap(shape, keypoints[i], sigma, device) for i in range(len(keypoints))]
     batch_heatmaps = torch.stack(batch_heatmaps, dim=0)
     return batch_heatmaps
 
@@ -56,14 +54,17 @@ def generate_channel_heatmap(
     v_axis = torch.linspace(0, image_size[0] - 1, image_size[0], device=device)
     # create grid values in 2D with x and y coordinate centered aroud the keypoint
     v_grid, u_grid = torch.meshgrid(v_axis, u_axis, indexing="ij")  # v-axis -> dim 0, u-axis -> dim 1
-    
-    u_grid = u_grid.unsqueeze(0) - keypoints[...,0].unsqueeze(-1).unsqueeze(-1)
-    v_grid = v_grid.unsqueeze(0) - keypoints[...,1].unsqueeze(-1).unsqueeze(-1)
+
+    u_grid = u_grid.unsqueeze(0) - keypoints[..., 0].unsqueeze(-1).unsqueeze(-1)
+    v_grid = v_grid.unsqueeze(0) - keypoints[..., 1].unsqueeze(-1).unsqueeze(-1)
 
     ## create gaussian around the centered 2D grids $ exp ( -0.5 (x**2 + y**2) / sigma**2)$
-    heatmap = torch.exp(-0.5 * (torch.square(u_grid) + torch.square(v_grid)) / torch.square(torch.tensor([sigma], device=device)))
-    heatmap = torch.max(heatmap,dim=0)[0]
+    heatmap = torch.exp(
+        -0.5 * (torch.square(u_grid) + torch.square(v_grid)) / torch.square(torch.tensor([sigma], device=device))
+    )
+    heatmap = torch.max(heatmap, dim=0)[0]
     return heatmap
+
 
 def get_keypoints_from_heatmap(
     heatmap: torch.Tensor, min_keypoint_pixel_distance: int, max_keypoints=None
@@ -92,19 +93,15 @@ def get_keypoints_from_heatmap(
     return keypoints[::, ::-1].tolist()  # convert to (u,v) aka (col,row) coord frame from (row,col)
 
 
-def compute_keypoint_probability(
-        heatmap: torch.Tensor, detected_keypoints: List[Tuple[int, int]]
-    ) -> List[float]:
-        """Compute probability measure for each detected keypoint on the heatmap
+def compute_keypoint_probability(heatmap: torch.Tensor, detected_keypoints: List[Tuple[int, int]]) -> List[float]:
+    """Compute probability measure for each detected keypoint on the heatmap
 
-        Args:
-            heatmap: Heatmap
-            detected_keypoints: List of extreacted keypoints
+    Args:
+        heatmap: Heatmap
+        detected_keypoints: List of extreacted keypoints
 
-        Returns:
-            : [description]
-        """
-        # note the order! (u,v) is how we write , but the heatmap has to be indexed (v,u) as it is H x W
-        return [heatmap[k[1]][k[0]].item() for k in detected_keypoints]
-
-
+    Returns:
+        : [description]
+    """
+    # note the order! (u,v) is how we write , but the heatmap has to be indexed (v,u) as it is H x W
+    return [heatmap[k[1]][k[0]].item() for k in detected_keypoints]

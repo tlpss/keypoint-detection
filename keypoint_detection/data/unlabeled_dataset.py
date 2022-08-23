@@ -3,7 +3,7 @@ import os
 import torch
 from torchvision.transforms import ToTensor
 
-from keypoint_detection.data.utils import ImageDataset
+from keypoint_detection.data.imageloader import ImageDataset
 
 
 class UnlabeledKeypointsDataset(ImageDataset):

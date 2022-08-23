@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from keypoint_detection.data.json_formats.coco_parser import CocoKeypoints
+from keypoint_detection.data.coco_parser import CocoKeypoints
 
 
 class TestCocoParser(unittest.TestCase):

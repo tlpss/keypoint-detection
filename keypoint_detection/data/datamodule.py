@@ -2,8 +2,11 @@ import argparse
 
 import pytorch_lightning as pl
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
+
 from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
+
+
 class KeypointsDataModule(pl.LightningDataModule):
     @staticmethod
     def add_argparse_args(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -30,13 +33,21 @@ class KeypointsDataModule(pl.LightningDataModule):
         )
 
     def train_dataloader(self):
-        dataloader = DataLoader(self.train_dataset, self.batch_size, shuffle=True, num_workers=self.num_workers, collate_fn=self.dataset.collate_fn)
+        dataloader = DataLoader(
+            self.train_dataset,
+            self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            collate_fn=self.dataset.collate_fn,
+        )
         return dataloader
 
     def val_dataloader(self):
         # num workers to zero to avoid non-reproducibility bc of random seeds for workers
         # cf. https://pytorch.org/docs/stable/notes/randomness.html
-        dataloader = DataLoader(self.validation_dataset, self.batch_size, shuffle=False, num_workers=0, collate_fn=self.dataset.collate_fn)
+        dataloader = DataLoader(
+            self.validation_dataset, self.batch_size, shuffle=False, num_workers=0, collate_fn=self.dataset.collate_fn
+        )
         return dataloader
 
     def test_dataloader(self):

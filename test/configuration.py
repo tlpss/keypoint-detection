@@ -5,12 +5,12 @@ import torch
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 
 TEST_PARAMS = {
-    "image_size" : 64,
-    "dataset_size" : 4,
+    "image_size": 64,
+    "dataset_size": 4,
 }
 
 DEFAULT_HPARAMS = {
-    "keypoint_channels": [["box_corner0", "box_corner1","box_corner2", "box_corner3"],["flap_corner0"]],
+    "keypoint_channel_configuration": [["box_corner0", "box_corner1", "box_corner2", "box_corner3"], ["flap_corner0"]],
     "detect_non_visible_keypoints": True,
     "seed": 102,
     "wandb_project": "test_project",
@@ -19,7 +19,7 @@ DEFAULT_HPARAMS = {
     "log_every_n_steps": 2,
     "gpus": 1 if torch.cuda.is_available() else 0,
     "json_dataset_path": os.path.join(TEST_DIR, "test_dataset/coco_dataset.json"),
-    "image_dataset_path": os.path.join(TEST_DIR,"test_dataset/images"),
+    "image_dataset_path": os.path.join(TEST_DIR, "test_dataset/images"),
     "batch_size": 2,
     "validation_split_ratio": 0.25,
     "num_workers": 2,

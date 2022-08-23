@@ -5,13 +5,14 @@ from pytorch_lightning.loggers import WandbLogger
 
 from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
 from keypoint_detection.data.datamodule import KeypointsDataModule
-from keypoint_detection.models.backbones.unet import UnetBackbone
+from keypoint_detection.models.backbones.unet import Unet
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import bce_loss
 from keypoint_detection.models.metrics import KeypointAPMetric
 from keypoint_detection.train.utils import create_pl_trainer
 from keypoint_detection.utils.heatmap import create_heatmap_batch, generate_channel_heatmap
 from keypoint_detection.utils.path import get_wandb_log_dir_path
+
 from .configuration import DEFAULT_HPARAMS
 
 
@@ -19,7 +20,7 @@ class TestHeatmapUtils(unittest.TestCase):
     def setUp(self) -> None:
         self.image_width = 32
         self.image_height = 16
-        self.keypoints =torch.Tensor([[10, 4], [10, 8], [30, 7]])
+        self.keypoints = torch.Tensor([[10, 4], [10, 8], [30, 7]])
         self.sigma = 3
 
         self.heatmaps = generate_channel_heatmap(
@@ -27,7 +28,7 @@ class TestHeatmapUtils(unittest.TestCase):
         )
         self.loss_function = bce_loss
         self.hparams = DEFAULT_HPARAMS
-        self.backbone = UnetBackbone(**self.hparams)
+        self.backbone = Unet(**self.hparams)
         self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
 
         self.module = KeypointsDataModule(COCOKeypointsDataset(**self.hparams), **self.hparams)
@@ -43,7 +44,7 @@ class TestModel(unittest.TestCase):
     def setUp(self) -> None:
         self.loss_function = bce_loss
         self.hparams = DEFAULT_HPARAMS
-        self.backbone = UnetBackbone(**self.hparams)
+        self.backbone = Unet(**self.hparams)
         self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
 
         self.module = KeypointsDataModule(COCOKeypointsDataset(**self.hparams), **self.hparams)
@@ -78,13 +79,17 @@ class TestModel(unittest.TestCase):
 
         for batch in self.module.train_dataloader():
             imgs, keypoints = batch
-            heatmaps = create_heatmap_batch(imgs[0].shape[1:], keypoints[0], self.model.heatmap_sigma,self.model.device)
-            self.model.update_ap_metrics(heatmaps, keypoints[0], metric)
+            heatmaps = create_heatmap_batch(
+                imgs[0].shape[1:], keypoints[0], self.model.heatmap_sigma, self.model.device
+            )
+            self.model.update_channel_ap_metrics(heatmaps, keypoints[0], metric)
 
         ap = metric.compute()
         self.assertEqual(ap, 1.0)
 
-    def test_initial_values(self):
+    def test_model_init_heatmaps(self):
+        # should be low, to avoid hockey stick loss curve
+        # since most of the heatmaps has to be low-probability
         detector = self.model
 
         random_batch = torch.randn(1, 3, 100, 100)

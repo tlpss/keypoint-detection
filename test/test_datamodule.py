@@ -18,8 +18,7 @@ class TestDataModule(unittest.TestCase):
             module = KeypointsDataModule(self.dataset, 1, 1 - train_ratio, 2)
             train_dataloader = module.train_dataloader()
             self.assertEqual(len(train_dataloader), train_ratio * size)
-            self.assertEqual(len(module.val_dataloader()), (1-train_ratio) * size)
-
+            self.assertEqual(len(module.val_dataloader()), (1 - train_ratio) * size)
 
     def test_batch_format(self):
         batch_size = 3
@@ -36,11 +35,11 @@ class TestDataModule(unittest.TestCase):
 
         # check order of lists: channels, batch
         self.assertTrue(isinstance(keypoints, list))
-        n_channels = len(DEFAULT_HPARAMS["keypoint_channels"])
-        self.assertEqual(len(keypoints),n_channels)
+        n_channels = len(DEFAULT_HPARAMS["keypoint_channel_configuration"])
+        self.assertEqual(len(keypoints), n_channels)
         for i in range(n_channels):
-            self.assertTrue(isinstance(keypoints[i],list))
-            self.assertEqual(len(keypoints[i]),batch_size)
+            self.assertTrue(isinstance(keypoints[i], list))
+            self.assertEqual(len(keypoints[i]), batch_size)
 
         ch1, ch2 = keypoints
 

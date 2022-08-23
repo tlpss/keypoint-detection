@@ -7,9 +7,16 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 
-from keypoint_detection.utils.path import get_wandb_log_dir_path, get_artifact_dir_path
+from keypoint_detection.utils.path import get_artifact_dir_path
+
 
 class RelativeEarlyStopping(EarlyStopping):
+    """Slightly modified Early Stopping Callback that allows to set a relative threshold (loss * threshold)
+    hope this will be integrated in Lightning one day: https://github.com/Lightning-AI/lightning/issues/12094
+
+
+    """
+
     def __init__(
         self,
         monitor: Optional[str] = None,

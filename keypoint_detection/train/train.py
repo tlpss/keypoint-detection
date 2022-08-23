@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from typing import Tuple, List
+from typing import List, Tuple
 
 import pytorch_lightning as pl
 import wandb
@@ -12,7 +12,8 @@ from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import LossFactory
 from keypoint_detection.train.utils import create_pl_trainer
-from keypoint_detection.utils.path import get_wandb_log_dir_path, get_artifact_dir_path
+from keypoint_detection.utils.path import get_wandb_log_dir_path
+
 
 def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
     """
@@ -27,7 +28,7 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
         help="The entity name to log the project against, can be simply set to your username if you have no dedicated entity for this project",
     )
     parser.add_argument(
-        "--keypoint_channels",
+        "--keypoint_channel_configuration",
         type=str,
         help="A list of the semantic keypoints that you want to learn in each channel. These semantic categories must be defined in the COCO dataset. Seperate the channels with a ; and the categories within a channel with a =",
     )
@@ -65,11 +66,13 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     trainer.fit(model, module)
     return model, trainer
 
-def parse_channels(channel_configuration: str) -> List[List[str]]:
+
+def parse_channel_configuration(channel_configuration: str) -> List[List[str]]:
     assert isinstance(channel_configuration, str)
     channels = channel_configuration.split(";")
     channels = [[category.strip() for category in channel.split("=")] for channel in channels]
     return channels
+
 
 if __name__ == "__main__":
     """
@@ -94,7 +97,7 @@ if __name__ == "__main__":
     hparams = vars(parser.parse_args())
     # remove the unused optional items without default, which have None as key
     hparams = {k: v for k, v in hparams.items() if v is not None}
-    hparams["keypoint_channels"] = parse_channels(hparams["keypoint_channels"])
+    hparams["keypoint_channel_configuration"] = parse_channel_configuration(hparams["keypoint_channel_configuration"])
     print(f" argparse arguments ={hparams}")
 
     # initialize wandb here, this allows for using wandb sweeps.

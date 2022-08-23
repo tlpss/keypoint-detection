@@ -2,6 +2,8 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
+"""Custom parser for COCO keypoints JSON"""
+
 LicenseID = int
 ImageID = int
 CategoryID = int
@@ -58,6 +60,14 @@ class CocoKeypointAnnotation(BaseModel):
 
 
 class CocoKeypoints(BaseModel):
+    """Parser Class for COCO keypoints JSON
+
+    Example:
+    with open("path","r") as file:
+        data = json.load(file) # dict
+        parsed_data = COCOKeypoints(**data)
+    """
+
     info: Optional[CocoInfo]
     licenses: Optional[List[CocoLicenses]]
     images: List[CocoImage]
