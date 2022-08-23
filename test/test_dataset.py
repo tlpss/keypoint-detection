@@ -1,3 +1,4 @@
+from pathlib import Path
 import unittest
 
 import torch
@@ -13,6 +14,7 @@ class TestDataSet(unittest.TestCase):
         self.hparams = DEFAULT_HPARAMS
 
     def test_dataset(self):
+        self.hparams["json_dataset_path"] = Path(__file__).parent / "test_dataset" / "duplicate_coco_dataset.json"
         dataset = COCOKeypointsDataset(**self.hparams)
 
         self.assertEqual(len(dataset),TEST_PARAMS["dataset_size"])

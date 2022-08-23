@@ -12,7 +12,6 @@ import torch
 from torchvision.transforms import ToTensor
 
 from keypoint_detection.data.utils import ImageDataset, ImageLoader, IOSafeImageLoaderDecorator
-from keypoint_detection.utils.tensor_padding import pad_tensor_with_nans
 from keypoint_detection.data.json_formats.coco_parser import CocoImage, CocoKeypointCategory, CocoKeypoints
 
 class COCOKeypointsDataset(ImageDataset):
