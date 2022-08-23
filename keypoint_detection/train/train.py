@@ -1,18 +1,18 @@
 from argparse import ArgumentParser
-from typing import Tuple
+from typing import Tuple, List
 
 import pytorch_lightning as pl
 import wandb
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer.trainer import Trainer
 
-from keypoint_detection.data.blender_dataset import BlenderKeypointsDataset
-from keypoint_detection.data.datamodule import RandomSplitDataModule
+from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
+from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.loss import LossFactory
 from keypoint_detection.train.utils import create_pl_trainer
-
+from keypoint_detection.utils.path import get_wandb_log_dir_path, get_artifact_dir_path
 
 def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
     """
@@ -29,12 +29,7 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument(
         "--keypoint_channels",
         type=str,
-        help="The names of the keypoint channels that you want to detect, as they are defined in the dataset.json file. Seperate the names with a space.",
-    )
-    parser.add_argument(
-        "--keypoint_channel_max_keypoints",
-        type=str,
-        help="The maximal number of keypoints within each channel, used to pad the keypoint tensor if the number of (visible) keypoints is not constant. If the number of keypoints is the same for each instance, provide -1 for optimal performance. Separate the names with a space.",
+        help="A list of the semantic keypoints that you want to learn in each channel. These semantic categories must be defined in the COCO dataset. Seperate the channels with a ; and the categories within a channel with a =",
     )
 
     parser.add_argument(
@@ -57,19 +52,24 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     loss = LossFactory.create_loss(**hparams)
     model = KeypointDetector(backbone=backbone, loss_function=loss, **hparams)
 
-    dataset = BlenderKeypointsDataset(**hparams)
+    dataset = COCOKeypointsDataset(**hparams)
 
-    module = RandomSplitDataModule(dataset, **hparams)
+    module = KeypointsDataModule(dataset, **hparams)
     wandb_logger = WandbLogger(
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
-        save_dir=KeypointDetector.get_wandb_log_dir_path(),
+        save_dir=get_wandb_log_dir_path(),
         log_model="all",  # log all checkpoints made by PL, see create_trainer for callback
     )
     trainer = create_pl_trainer(hparams, wandb_logger)
     trainer.fit(model, module)
     return model, trainer
 
+def parse_channels(channel_configuration: str) -> List[List[str]]:
+    assert isinstance(channel_configuration, str)
+    channels = channel_configuration.split(";")
+    channels = [[category.strip() for category in channel.split("=")] for channel in channels]
+    return channels
 
 if __name__ == "__main__":
     """
@@ -85,8 +85,8 @@ if __name__ == "__main__":
     parser = add_system_args(parser)
     parser = KeypointDetector.add_model_argparse_args(parser)
     parser = Trainer.add_argparse_args(parser)
-    parser = BlenderKeypointsDataset.add_argparse_args(parser)
-    parser = RandomSplitDataModule.add_argparse_args(parser)
+    parser = COCOKeypointsDataset.add_argparse_args(parser)
+    parser = KeypointsDataModule.add_argparse_args(parser)
     parser = BackboneFactory.add_to_argparse(parser)
     parser = LossFactory.add_to_argparse(parser)
 
@@ -94,6 +94,7 @@ if __name__ == "__main__":
     hparams = vars(parser.parse_args())
     # remove the unused optional items without default, which have None as key
     hparams = {k: v for k, v in hparams.items() if v is not None}
+    hparams["keypoint_channels"] = parse_channels(hparams["keypoint_channels"])
     print(f" argparse arguments ={hparams}")
 
     # initialize wandb here, this allows for using wandb sweeps.
@@ -104,7 +105,7 @@ if __name__ == "__main__":
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
         config=hparams,
-        dir=KeypointDetector.get_wandb_log_dir_path(),  # dir should already exist! will fallback to /tmp and not log images otherwise..
+        dir=get_wandb_log_dir_path(),  # dir should already exist! will fallback to /tmp and not log images otherwise..
     )
 
     # get (possibly updated by sweep) config parameters
