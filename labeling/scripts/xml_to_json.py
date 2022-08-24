@@ -6,7 +6,7 @@ import json
 
 def get_dict_from_xml(xml_path):
     with open(xml_path, "r") as file:
-        xml_dict = xmltodict.parse(file.read(),attr_prefix="_")
+        xml_dict = xmltodict.parse(file.read(),attr_prefix="")
         return xml_dict
 
 

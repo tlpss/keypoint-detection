@@ -50,7 +50,7 @@ class CocoKeypointAnnotation(BaseModel):
     id: AnnotationID
     image_id: ImageID
 
-    num_keypoints: int
+    num_keypoints: Optional[int]
     keypoints: List[float]
 
     # TODO: add checks.
