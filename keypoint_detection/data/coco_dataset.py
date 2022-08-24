@@ -147,7 +147,7 @@ class COCOKeypointsDataset(ImageDataset):
                             if channel_idx > -1:
                                 img_channels_keypoints[channel_idx].append(keypoint[:2])
 
-                dataset.append([img.file_name, img_channels_keypoints])
+                dataset.append([img_dict[img_id].file_name, img_channels_keypoints])
 
             return dataset
 
