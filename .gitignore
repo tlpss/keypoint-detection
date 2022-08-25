@@ -8,4 +8,5 @@ data/
 **wandb/
 lightning_logs**
 **.ckpt
+
 **/checkpoints/
