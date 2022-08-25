@@ -1,0 +1,106 @@
+{
+    "images": [
+        {
+            "file_name": "images/1.jpeg",
+            "height": 256,
+            "width": 256,
+            "id": 1
+        },
+        {
+            "file_name": "images/2.jpeg",
+            "height": 256,
+            "width": 256,
+            "id": 2
+        },
+        {
+            "file_name": "images/3.jpeg",
+            "height": 256,
+            "width": 256,
+            "id": 3
+        },
+        {
+            "file_name": "images/4.jpeg",
+            "height": 256,
+            "width": 256,
+            "id": 4
+        }
+    ],
+    "categories": [
+        {
+            "supercategory": "cloth",
+            "id": 0,
+            "name": "tshirt",
+            "keypoints": [
+                "neck",
+                "shoulder1",
+                "shoulder2"
+            ]
+        }
+    ],
+    "annotations": [
+        {
+            "category_id": 0,
+            "id": 1,
+            "image_id": 1,
+            "keypoints": [
+                0.4921875,
+                0.10390625,
+                2.0,
+                0.250390625,
+                0.12421875,
+                2.0,
+                0.71015625,
+                0.112890625,
+                2.0
+            ]
+        },
+        {
+            "category_id": 0,
+            "id": 2,
+            "image_id": 2,
+            "keypoints": [
+                0.49875,
+                0.239453125,
+                2.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "category_id": 0,
+            "id": 3,
+            "image_id": 3,
+            "keypoints": [
+                0.28109375,
+                0.16265625,
+                2.0,
+                0.15046875,
+                0.1613671875,
+                2.0,
+                0.40015625,
+                0.15625,
+                2.0
+            ]
+        },
+        {
+            "category_id": 0,
+            "id": 4,
+            "image_id": 3,
+            "keypoints": [
+                0.731796875,
+                0.1575390625,
+                1.0,
+                0.5948046875,
+                0.179296875,
+                2.0,
+                0.86625,
+                0.1741796875,
+                2.0
+            ]
+        }
+    ]
+}

@@ -1,0 +1,109 @@
+{
+    "info": null,
+    "licenses": null,
+    "images": [
+        {
+            "license": null,
+            "file_name": "1.jpeg",
+            "height": 256,
+            "width": 256,
+            "id": 1
+        },
+        {
+            "license": null,
+            "file_name": "2.jpeg",
+            "height": 256,
+            "width": 256,
+            "id": 2
+        },
+        {
+            "license": null,
+            "file_name": "3.jpeg",
+            "height": 256,
+            "width": 256,
+            "id": 3
+        },
+        {
+            "license": null,
+            "file_name": "4.jpeg",
+            "height": 256,
+            "width": 256,
+            "id": 4
+        }
+    ],
+    "categories": [
+        {
+            "supercategory": "onion",
+            "id": 0,
+            "name": "onion",
+            "keypoints": [
+                "head",
+                "tail"
+            ],
+            "skeleton": [
+                [
+                    1,
+                    0
+                ]
+            ]
+        }
+    ],
+    "annotations": [
+        {
+            "category_id": 0,
+            "id": 1,
+            "image_id": 1,
+            "num_keypoints": null,
+            "keypoints": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "category_id": 0,
+            "id": 2,
+            "image_id": 2,
+            "num_keypoints": null,
+            "keypoints": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "category_id": 0,
+            "id": 3,
+            "image_id": 3,
+            "num_keypoints": null,
+            "keypoints": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "category_id": 0,
+            "id": 4,
+            "image_id": 4,
+            "num_keypoints": null,
+            "keypoints": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        }
+    ]
+}
