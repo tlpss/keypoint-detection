@@ -79,8 +79,6 @@ class ConvNeXtUnet(Backbone):
                 self.encoder.feature_info.info[-i]["num_chs"],
                 self.encoder.feature_info.info[-i - 1]["num_chs"],
             )
-            print(channels_in)
-            print(skip_channels_in)
             block = UpSamplingBlock(channels_in, skip_channels_in, skip_channels_in, 3)
             self.decoder_blocks.append(block)
 
