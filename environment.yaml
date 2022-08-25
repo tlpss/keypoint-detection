@@ -1,4 +1,3 @@
-name: keypoint-detection
 channels:
   - pytorch
   - conda-forge

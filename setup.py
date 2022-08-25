@@ -4,7 +4,7 @@ setup(
     name="keypoint_detection",
     author="Thomas Lips",
     author_email="thomas.lips@ugent.be",
-    version="0.1",
+    version="1.0",
     description="Pytorch Models, Modules etc for keypoint detection",
     url="https://github.com/tlpss/keypoint-detection",
     packages=["keypoint_detection"],
