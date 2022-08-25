@@ -1,4 +1,4 @@
-name: base # to update an existing environment: conda env update -n <current_name> --file <path-to-this-file>
+name: keypoint-detection # to update an existing environment: conda env update -n <current_name> --file <path-to-this-file>
 channels:
   - pytorch
   - conda-forge

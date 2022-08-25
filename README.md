@@ -25,7 +25,7 @@ TODO: add integration example.
 
 ## Local Installation
 - clone this repo in your project (e.g. as a [submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules), using [vcs](https://github.com/dirk-thomas/vcstool),..). It is recommended to lock to the current commit as there are no guarantees w.r.t. backwards comptability.
-- create a conda environment using `conda env create -n keypoint-detection --file environment.yaml`
+- create a conda environment using `conda env create --file environment.yaml`
 - activate with `conda activate keypoint-detection`
 - run `wandb login` to set up your wandb account.
 - you are now ready to start training.
