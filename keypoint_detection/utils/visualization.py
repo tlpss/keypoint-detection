@@ -31,11 +31,11 @@ def visualize_predictions(
 ):
     num_images = min(predicted_heatmaps.shape[0], 6)
 
-    predicted_heatmap_overlays = overlay_image_with_heatmap(imgs, predicted_heatmaps)
-    gt_heatmap_overlays = overlay_image_with_heatmap(imgs, gt_heatmaps)
+    predicted_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], predicted_heatmaps[:num_images])
+    gt_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], gt_heatmaps[:num_images])
 
     predicted_keypoints_overlays = overlay_image_with_heatmap(
-        imgs,
+        imgs[:num_images],
         torch.stack(
             [
                 generate_channel_heatmap(
@@ -46,7 +46,7 @@ def visualize_predictions(
                     sigma=max(1, int(imgs.shape[-1] / 64)),
                     device="cpu",
                 )
-                for i in range(predicted_heatmaps.shape[0])
+                for i in range(num_images)
             ]
         ),
     )

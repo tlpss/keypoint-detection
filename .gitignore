@@ -4,6 +4,7 @@
 .vscode/**
 
 dataset/
+data/
 **wandb/
 lightning_logs**
 **.ckpt
