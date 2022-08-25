@@ -1,14 +1,11 @@
 # CVAT to COCO Keypoints
 
-This readme defines a workflow to label semantic keypoints on images using [CVAT]() and to convert them to the COCO keypoints [format]().
+This readme defines a workflow to label semantic keypoints on images using [CVAT](https://www.cvat.ai/) and to convert them to the [COCO keypoints format](https://cocodataset.org/#format-data).
  This package contains parsers for the different dataset formats and code to convert from the CVAT Image 1.1 format to COCO format.
 
-TODO: separate this from the keypoint detection!
-
-TODO: enhance readme with video of the proces or at least with some screenshots.
 
 
-## Use case
+## Labeling use case analysis
 - **we want to label semantic keypoints on images**.
 - There can be **multiple categories / classes of objects in the images**. Each category can have 0 - N instances in each image. (think about categories/classes as objects that you could draw a bounding box or segmentation mask for).
 - Each category has a number of  **semantic types** of keypoints that are of interest. E.g. arms, shoulders, head,.. for the person category.
