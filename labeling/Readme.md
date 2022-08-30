@@ -30,10 +30,10 @@ After labeling, the annotations XML can be downloaded.
 - label your images.
 - export the annotations XML in the CVAT images format.
 - create a Category configuration that specifies for each category:
-    - it's name
-    - it's desired ID
-    - it's supercategory
-    - it's semantic types and how much keypoints each type has
+    - its name
+    - its desired ID
+    - its supercategory
+    - its semantic types and how much keypoints each type has
 
     This configuration is then used to create the COCO object categories and define all the keypoints for each categorie.
 

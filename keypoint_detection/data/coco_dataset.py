@@ -129,9 +129,6 @@ class COCOKeypointsDataset(ImageDataset):
                 keypoints = annotation.keypoints
                 keypoints = self.split_list_in_keypoints(keypoints)
                 for semantic_type, keypoint in zip(semantic_classes, keypoints):
-                    # rescale to pixel coordinates
-                    keypoint[0] *= img.width
-                    keypoint[1] *= img.height
                     annotation_dict[annotation.image_id][semantic_type].append(keypoint)
 
             # iterate over each image and all it's annotations

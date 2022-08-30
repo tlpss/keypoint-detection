@@ -206,8 +206,8 @@ def extract_coco_keypoint_from_cvat_point(cvat_point: Point, cvat_image: ImageIt
         List: [u,v,f] where u,v are the coords scaled to the image resolution and f is the coco visibility flag.
         see the coco dataset format for more details.
     """
-    u = float(cvat_point.points.split(",")[0]) / int(cvat_image.width)
-    v = float(cvat_point.points.split(",")[1]) / int(cvat_image.height)
+    u = float(cvat_point.points.split(",")[0])
+    v = float(cvat_point.points.split(",")[1])
     f = (
         1 if cvat_point.occluded == "1" else 2
     )  # occluded = 1 means not visible, which is 1 in COCO; visible in COCO is 2
