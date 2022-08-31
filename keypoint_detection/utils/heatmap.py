@@ -48,7 +48,7 @@ def generate_channel_heatmap(
 
     if keypoints.numel() == 0:
         # special case for which there are no keypoints in this channel.
-        return torch.zeros(image_size)
+        return torch.zeros(image_size,device=device)
 
     u_axis = torch.linspace(0, image_size[1] - 1, image_size[1], device=device)
     v_axis = torch.linspace(0, image_size[0] - 1, image_size[0], device=device)
