@@ -78,7 +78,8 @@ def visualize_predictions(
 
     grid = torchvision.utils.make_grid(images, nrow=num_images)
     mode = "val" if is_validation_step else "train"
-    label = f"{keypoint_channel}_{mode}_keypoints"
+    keypoint_channel_short = (keypoint_channel[:50] + '...') if len(keypoint_channel) > 50 else keypoint_channel
+    label = f"{keypoint_channel_short}_{mode}_keypoints"
     logger.experiment.log(
         {label: wandb.Image(grid, caption="top: predicted heatmaps, middle: predicted keypoints, bottom: gt heatmap")}
     )
