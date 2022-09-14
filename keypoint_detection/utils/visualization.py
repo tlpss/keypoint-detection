@@ -50,7 +50,7 @@ def overlay_image_with_keypoints(images: torch.Tensor, keypoints: List[torch.Ten
     return overlayed_images
 
 
-def (
+def visualize_predictions(
     imgs: torch.Tensor,
     predicted_heatmaps: torch.Tensor,
     gt_heatmaps: torch.Tensor,
