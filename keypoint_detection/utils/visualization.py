@@ -50,7 +50,7 @@ def overlay_image_with_keypoints(images: torch.Tensor, keypoints: List[torch.Ten
     return overlayed_images
 
 
-def visualize_predictions(
+def (
     imgs: torch.Tensor,
     predicted_heatmaps: torch.Tensor,
     gt_heatmaps: torch.Tensor,
@@ -78,7 +78,10 @@ def visualize_predictions(
 
     grid = torchvision.utils.make_grid(images, nrow=num_images)
     mode = "val" if is_validation_step else "train"
-    keypoint_channel_short = (keypoint_channel[:50] + '...') if len(keypoint_channel) > 50 else keypoint_channel
+
+    if isinstance(keypoint_channel, list):
+        keypoint_channel = f"{keypoint_channel[0]}+{keypoint_channel[1]}+..."
+    keypoint_channel_short = (keypoint_channel[:40] + '...') if len(keypoint_channel) > 40 else keypoint_channel
     label = f"{keypoint_channel_short}_{mode}_keypoints"
     logger.experiment.log(
         {label: wandb.Image(grid, caption="top: predicted heatmaps, middle: predicted keypoints, bottom: gt heatmap")}
