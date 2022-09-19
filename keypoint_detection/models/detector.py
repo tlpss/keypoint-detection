@@ -112,9 +112,10 @@ class KeypointDetector(pl.LightningModule):
         self.keypoint_channel_configuration = keypoint_channel_configuration
 
         # parse the gt pixel distances
-        maximal_gt_keypoint_pixel_distances = [
-            float(val) for val in maximal_gt_keypoint_pixel_distances.strip().split(" ")
-        ]
+        if isinstance(maximal_gt_keypoint_pixel_distances, str):
+            maximal_gt_keypoint_pixel_distances = [
+                float(val) for val in maximal_gt_keypoint_pixel_distances.strip().split(" ")
+            ]
         self.maximal_gt_keypoint_pixel_distances = maximal_gt_keypoint_pixel_distances
 
         self.ap_validation_metrics = [
