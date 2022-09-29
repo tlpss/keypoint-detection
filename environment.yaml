@@ -9,6 +9,7 @@ dependencies:
   - python=3.9
   - pytorch=1.10.2=py3.9_cuda10.2_cudnn7.6.5_0
   - torchvision=0.11.3=py39_cu102
+  - xmltodict=0.12.0
   - pip:
     - wandb==0.12.10
     - tqdm==4.62.3
