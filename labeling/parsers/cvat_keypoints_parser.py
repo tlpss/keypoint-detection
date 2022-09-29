@@ -48,7 +48,7 @@ class LabelItem(BaseModel):
 
 
 class Labels(BaseModel):
-    label: List[LabelItem]
+    label: Union[List[LabelItem], LabelItem]
 
 
 class Task(BaseModel):
