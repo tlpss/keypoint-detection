@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+import wandb
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from keypoint_detection.models.backbones.base_backbone import Backbone
@@ -122,6 +123,10 @@ class KeypointDetector(pl.LightningModule):
             KeypointAPMetrics(self.maximal_gt_keypoint_pixel_distances) for _ in self.keypoint_channel_configuration
         ]
 
+        self.ap_test_metrics = [
+            KeypointAPMetrics(self.maximal_gt_keypoint_pixel_distances) for _ in self.keypoint_channel_configuration
+        ]
+
         self.n_heatmaps = len(self.keypoint_channel_configuration)
 
         head = nn.Conv2d(
@@ -180,7 +185,7 @@ class KeypointDetector(pl.LightningModule):
             },
         }
 
-    def shared_step(self, batch, batch_idx, is_validation_step=False) -> Dict[str, Any]:
+    def shared_step(self, batch, batch_idx, include_visualization_data=False) -> Dict[str, Any]:
         """
         shared step for train and validation step
 
@@ -192,20 +197,18 @@ class KeypointDetector(pl.LightningModule):
 
         shared_dict (Dict): a dict with a.o. heatmaps, gt_keypoints and losses
         """
-        imgs, keypoints = batch
-        channel_keypoints = []
-        channel_gt_heatmaps = []
-        for channel_idx in range(len(self.keypoint_channel_configuration)):
-            channel_keypoints.append(keypoints[channel_idx])
-            channel_gt_heatmaps.append(
-                create_heatmap_batch(
-                    imgs[0].shape[1:], channel_keypoints[channel_idx], self.heatmap_sigma, self.device
-                )
-            )
-        imgs = imgs.to(self.device)
+        input_images, keypoint_channels = batch
+        heatmap_shape = input_images[0].shape[1:]
+
+        gt_heatmaps = [
+            create_heatmap_batch(heatmap_shape, keypoint_channel, self.heatmap_sigma, self.device)
+            for keypoint_channel in keypoint_channels
+        ]
+
+        input_images = input_images.to(self.device)
 
         ## predict and compute losses
-        predicted_heatmaps = self.forward(imgs)
+        predicted_heatmaps = self.forward(input_images)
 
         channel_losses = []
         channel_gt_losses = []
@@ -213,47 +216,40 @@ class KeypointDetector(pl.LightningModule):
         result_dict = {}
         for channel_idx in range(len(self.keypoint_channel_configuration)):
             channel_losses.append(
-                self.heatmap_loss(predicted_heatmaps[:, channel_idx, :, :], channel_gt_heatmaps[channel_idx])
+                self.heatmap_loss(predicted_heatmaps[:, channel_idx, :, :], gt_heatmaps[channel_idx])
             )
             channel_gt_losses.append(
-                self.heatmap_loss(channel_gt_heatmaps[channel_idx], channel_gt_heatmaps[channel_idx])
+                self.heatmap_loss(gt_heatmaps[channel_idx], gt_heatmaps[channel_idx])
             )  # BCE gt loss does not go to zero but to the entropy!
 
             # pass losses and other info to result dict
             result_dict.update(
                 {f"{self.keypoint_channel_configuration[channel_idx]}_loss": channel_losses[channel_idx].detach()}
             )
-            if is_validation_step:
-                result_dict.update(
-                    {f"{self.keypoint_channel_configuration[channel_idx]}_keypoints": channel_keypoints[channel_idx]}
-                )
-
-        # only pass predictions in validate step to avoid overhead in train step.
-        if is_validation_step:
-            result_dict.update({"predicted_heatmaps": predicted_heatmaps.detach()})
 
         loss = sum(channel_losses)
         gt_loss = sum(channel_gt_losses)
         result_dict.update({"loss": loss, "gt_loss": gt_loss})
 
-        # visualization
-        if batch_idx == 0 and self.current_epoch > 0:
-            for channel_idx, channel_name in enumerate(self.keypoint_channel_configuration):
-                visualize_predictions(
-                    imgs.cpu(),
-                    predicted_heatmaps[:, channel_idx, :, :].detach().cpu(),
-                    channel_gt_heatmaps[channel_idx].cpu(),
-                    self.logger,
-                    self.minimal_keypoint_pixel_distance,
-                    channel_name,
-                    is_validation_step=is_validation_step,
-                )
+        if include_visualization_data:
+            result_dict.update(
+                {
+                    "input_images": input_images.detach(),
+                    "gt_keypoints": keypoint_channels,
+                    "predicted_heatmaps": predicted_heatmaps.detach(),
+                    "gt_heatmaps": gt_heatmaps,
+                }
+            )
 
         return result_dict
 
     def training_step(self, train_batch, batch_idx):
+        log_images = batch_idx == 0 and self.current_epoch > 0
+        result_dict = self.shared_step(train_batch, batch_idx, include_visualization_data=log_images)
 
-        result_dict = self.shared_step(train_batch, batch_idx)
+        if log_images:
+            image_grids = self.visualize_predictions_channels(result_dict)
+            self.log_image_grids(image_grids, mode="train")
 
         for channel_name in self.keypoint_channel_configuration:
             self.log(f"train/{channel_name}", result_dict[f"{channel_name}_loss"])
@@ -263,39 +259,94 @@ class KeypointDetector(pl.LightningModule):
         self.log("train/loss", result_dict["loss"], on_epoch=True)  # also logs steps?
         return result_dict
 
-    def validation_step(self, val_batch, batch_idx):
+    def update_ap_metrics(self, result_dict, ap_metrics):
+        predicted_heatmaps = result_dict["predicted_heatmaps"]
+        gt_keypoints = result_dict["gt_keypoints"]
+        for channel_idx in range(len(self.keypoint_channel_configuration)):
+            predicted_heatmaps_channel = predicted_heatmaps[:, channel_idx, :, :]
+            gt_keypoints_channel = gt_keypoints[channel_idx]
+            self.update_channel_ap_metrics(predicted_heatmaps_channel, gt_keypoints_channel, ap_metrics[channel_idx])
 
-        result_dict = self.shared_step(val_batch, batch_idx, is_validation_step=True)
+    def visualize_predictions_channels(self, result_dict):
+        input_images = result_dict["input_images"]
+        gt_heatmaps = result_dict["gt_heatmaps"]
+        predicted_heatmaps = result_dict["predicted_heatmaps"]
+
+        image_grids = []
+        for channel_idx in range(len(self.keypoint_channel_configuration)):
+            grid = visualize_predictions(
+                input_images, predicted_heatmaps[:, channel_idx, :, :], gt_heatmaps[channel_idx], 6
+            )
+            image_grids.append(grid)
+        return image_grids
+
+    @staticmethod
+    def logging_label(channel_configuration, mode: str):
+        channel_name = channel_configuration
+
+        if isinstance(channel_configuration, list):
+            if len(channel_configuration) == 1:
+                channel_name = channel_configuration[0]
+            else:
+                channel_name = f"{channel_configuration[0]}+{channel_configuration[1]}+..."
+
+        channel_name_short = (channel_name[:40] + "...") if len(channel_name) > 40 else channel_name
+        label = f"{channel_name_short}_{mode}_keypoints"
+        return label
+
+    def log_image_grids(self, image_grids, mode: str):
+        for channel_configuration, grid in zip(self.keypoint_channel_configuration, image_grids):
+            label = KeypointDetector.logging_label(channel_configuration, mode)
+            image_caption = "top: predicted heatmaps, middle: predicted keypoints, bottom: gt heatmap"
+            self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
+
+    def validation_step(self, val_batch, batch_idx):
+        result_dict = self.shared_step(val_batch, batch_idx, include_visualization_data=True)
 
         if self.is_ap_epoch():
-            # update corner AP metric
-            for channel_idx, channel_name in enumerate(self.keypoint_channel_configuration):
-                predicted_channel_heatmaps = result_dict["predicted_heatmaps"][:, channel_idx, :, :]
-                gt_corner_keypoints = result_dict[f"{channel_name}_keypoints"]
-                self.update_channel_ap_metrics(
-                    predicted_channel_heatmaps, gt_corner_keypoints, self.ap_validation_metrics[channel_idx]
-                )
+            self.update_ap_metrics(result_dict, self.ap_validation_metrics)
+
+        log_images = batch_idx == 0 and self.current_epoch > 0
+        if log_images:
+            image_grids = self.visualize_predictions_channels(result_dict)
+            self.log_image_grids(image_grids, mode="validation")
 
         ## log (defaults to on_epoch, which aggregates the logged values over entire validation set)
         self.log("validation/epoch_loss", result_dict["loss"])
         self.log("validation/gt_loss", result_dict["gt_loss"])
+
+    def test_step(self, test_batch, batch_idx):
+        result_dict = self.shared_step(test_batch, batch_idx, include_visualization_data=True)
+        self.update_ap_metrics(result_dict, self.ap_test_metrics)
+        image_grids = self.visualize_predictions_channels(result_dict)
+        self.log_image_grids(image_grids, mode="test")
+        self.log("test/epoch_loss", result_dict["loss"])
+        self.log("test/gt_loss", result_dict["gt_loss"])
+
+    def log_and_reset_mean_ap(self, mode: str):
+        mean_ap = 0.0
+        for channel_idx, channel_name in enumerate(self.keypoint_channel_configuration):
+            channel_mean_ap = self.compute_and_log_metrics_for_channel(
+                self.ap_test_metrics[channel_idx], channel_name, mode
+            )
+            mean_ap += channel_mean_ap
+        mean_ap /= len(self.keypoint_channel_configuration)
+        self.log(f"{mode}/meanAP", mean_ap)
 
     def validation_epoch_end(self, outputs):
         """
         Called on the end of a validation epoch.
         Used to compute and log the AP metrics.
         """
-
         if self.is_ap_epoch():
-            mean_ap = 0.0
-            for channel_idx, channel_name in enumerate(self.keypoint_channel_configuration):
-                mean_ap += self.compute_and_log_metrics_for_channel(
-                    self.ap_validation_metrics[channel_idx], channel_name
-                )
+            self.log_and_reset_mean_ap("validation")
 
-            mean_ap /= len(self.keypoint_channel_configuration)
-
-            self.log("meanAP", mean_ap)
+    def test_epoch_end(self, outputs):
+        """
+        Called on the end of a test epoch.
+        Used to compute and log the AP metrics.
+        """
+        self.log_and_reset_mean_ap("test")
 
     def update_channel_ap_metrics(
         self, predicted_heatmaps: torch.Tensor, gt_keypoints: List[torch.Tensor], validation_metric: KeypointAPMetrics
@@ -317,21 +368,21 @@ class KeypointDetector(pl.LightningModule):
             detected_keypoints = self.extract_detected_keypoints_from_heatmap(predicted_heatmap)
             validation_metric.update(detected_keypoints, formatted_gt_keypoints[i])
 
-    def compute_and_log_metrics_for_channel(self, validation_metric: KeypointAPMetrics, channel: str) -> float:
+    def compute_and_log_metrics_for_channel(self, metrics: KeypointAPMetrics, channel: str, mode: str) -> float:
         """
         logs AP of predictions of single Channel² for each threshold distance (as configured) for the categorization of the keypoints into a confusion matrix.
         Also resets metric and returns resulting meanAP over all channels.
         """
         # compute ap's
-        ap_metrics = validation_metric.compute()
+        ap_metrics = metrics.compute()
         print(f"{ap_metrics=}")
         for maximal_distance, ap in ap_metrics.items():
-            self.log(f"validation/{channel}_ap/d={maximal_distance}", ap)
+            self.log(f"{mode}/{channel}_ap/d={maximal_distance}", ap)
 
         mean_ap = sum(ap_metrics.values()) / len(ap_metrics.values())
 
-        self.log(f"validation/{channel}_meanAP", mean_ap)  # log top level for wandb hyperparam chart.
-        validation_metric.reset()
+        self.log(f"{mode}/{channel}_meanAP", mean_ap)  # log top level for wandb hyperparam chart.
+        metrics.reset()
         return mean_ap
 
     def is_ap_epoch(self) -> bool:

@@ -20,17 +20,37 @@ class KeypointsDataModule(pl.LightningDataModule):
 
         return parent_parser
 
-    def __init__(self, dataset: COCOKeypointsDataset, batch_size, validation_split_ratio, num_workers, **kwargs):
+    def __init__(
+        self,
+        dataset: COCOKeypointsDataset,
+        batch_size,
+        validation_split_ratio,
+        num_workers,
+        validation_dataset=None,
+        test_dataset=None,
+        **kwargs
+    ):
         super().__init__()
         self.dataset = dataset
         self.batch_size = batch_size
         self.num_workers = num_workers
 
-        validation_size = int(validation_split_ratio * len(self.dataset))
-        train_size = len(self.dataset) - validation_size
-        self.train_dataset, self.validation_dataset = torch.utils.data.random_split(
-            self.dataset, [train_size, validation_size]
-        )
+        if validation_dataset is not None:
+            self.train_dataset = dataset
+            self.validation_dataset = validation_dataset
+        else:
+            self.train_dataset, self.validation_dataset = KeypointsDataModule._split_dataset(
+                dataset, validation_split_ratio
+            )
+
+        self.test_dataset = test_dataset
+
+    @staticmethod
+    def _split_dataset(dataset, validation_split_ratio):
+        validation_size = int(validation_split_ratio * len(dataset))
+        train_size = len(dataset) - validation_size
+        train_dataset, validation_dataset = torch.utils.data.random_split(dataset, [train_size, validation_size])
+        return train_dataset, validation_dataset
 
     def train_dataloader(self):
         dataloader = DataLoader(
@@ -51,4 +71,7 @@ class KeypointsDataModule(pl.LightningDataModule):
         return dataloader
 
     def test_dataloader(self):
-        pass
+        dataloader = DataLoader(
+            self.test_dataset, self.batch_size, shuffle=False, num_workers=0, collate_fn=self.dataset.collate_fn
+        )
+        return dataloader
