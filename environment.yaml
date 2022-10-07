@@ -9,5 +9,5 @@ dependencies:
   - torchvision
   - pip
   - pip:
-    - setuptools==59.5.0 
+    - setuptools==59.5.0
     - -e .
