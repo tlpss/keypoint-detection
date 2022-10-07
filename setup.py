@@ -8,5 +8,20 @@ setup(
     description="Pytorch Models, Modules etc for keypoint detection",
     url="https://github.com/tlpss/keypoint-detection",
     packages=["keypoint_detection", "labeling"],
-    # install_requires=[], # requirements are not handled by this package, since its use is mostly to provide easier use of imports.
+    install_requires=[
+    "torch>=0.10",
+    "torchvision>=0.11",
+    "pytorch-lightning>=1.5.10",
+    "torchmetrics>=0.7"
+    "wandb>=0.12",
+    "timm>=0.6.11", # requires smallsized convnext models
+    "tqdm",
+    "pytest",
+    "scikit-image",
+    "albumentations",
+    "matplotlib",
+    # for labeling package, should be moved in time to separate setup.py
+    "xmltodict", 
+    "pydantic",
+    ],
 )
