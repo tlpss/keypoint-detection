@@ -54,13 +54,13 @@ class KeypointDetector(pl.LightningModule):
         parser.add_argument(
             "--ap_epoch_start",
             type=int,
-            default=10,
+            default=1,
             help="Epoch at which to start calculating the AP every `ap_epoch_frequency` epochs.",
         )
         parser.add_argument(
             "--ap_epoch_freq",
             type=int,
-            default=10,
+            default=2,
             help="Rate at which to calculate the AP metric if epoch > `ap_epoch_start`",
         )
         parser.add_argument(
@@ -275,7 +275,10 @@ class KeypointDetector(pl.LightningModule):
         image_grids = []
         for channel_idx in range(len(self.keypoint_channel_configuration)):
             grid = visualize_predictions(
-                input_images, predicted_heatmaps[:, channel_idx, :, :], gt_heatmaps[channel_idx].cpu(), 6
+                input_images,
+                predicted_heatmaps[:, channel_idx, :, :],
+                gt_heatmaps[channel_idx].cpu(),
+                minimal_keypoint_pixel_distance=6,
             )
             image_grids.append(grid)
         return image_grids
@@ -325,10 +328,10 @@ class KeypointDetector(pl.LightningModule):
 
     def log_and_reset_mean_ap(self, mode: str):
         mean_ap = 0.0
+        metrics = self.ap_test_metrics if mode == "test" else self.ap_validation_metrics
+
         for channel_idx, channel_name in enumerate(self.keypoint_channel_configuration):
-            channel_mean_ap = self.compute_and_log_metrics_for_channel(
-                self.ap_test_metrics[channel_idx], channel_name, mode
-            )
+            channel_mean_ap = self.compute_and_log_metrics_for_channel(metrics[channel_idx], channel_name, mode)
             mean_ap += channel_mean_ap
         mean_ap /= len(self.keypoint_channel_configuration)
         self.log(f"{mode}/meanAP", mean_ap)

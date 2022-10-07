@@ -72,6 +72,10 @@ class KeypointsDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         dataloader = DataLoader(
-            self.test_dataset, self.batch_size, shuffle=False, num_workers=0, collate_fn=self.dataset.collate_fn
+            self.test_dataset,
+            min(4, self.batch_size),
+            shuffle=False,
+            num_workers=0,
+            collate_fn=self.dataset.collate_fn,
         )
         return dataloader
