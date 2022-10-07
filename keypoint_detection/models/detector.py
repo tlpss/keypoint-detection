@@ -234,9 +234,9 @@ class KeypointDetector(pl.LightningModule):
         if include_visualization_data:
             result_dict.update(
                 {
-                    "input_images": input_images.detach(),
+                    "input_images": input_images.detach().cpu(),
                     "gt_keypoints": keypoint_channels,
-                    "predicted_heatmaps": predicted_heatmaps.detach(),
+                    "predicted_heatmaps": predicted_heatmaps.detach().cpu(),
                     "gt_heatmaps": gt_heatmaps,
                 }
             )
@@ -275,7 +275,7 @@ class KeypointDetector(pl.LightningModule):
         image_grids = []
         for channel_idx in range(len(self.keypoint_channel_configuration)):
             grid = visualize_predictions(
-                input_images, predicted_heatmaps[:, channel_idx, :, :], gt_heatmaps[channel_idx], 6
+                input_images, predicted_heatmaps[:, channel_idx, :, :], gt_heatmaps[channel_idx].cpu(), 6
             )
             image_grids.append(grid)
         return image_grids
