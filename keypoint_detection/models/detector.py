@@ -281,7 +281,7 @@ class KeypointDetector(pl.LightningModule):
         return image_grids
 
     @staticmethod
-    def logging_label(channel_configuration, mode: str):
+    def logging_label(channel_configuration, mode: str) -> str:
         channel_name = channel_configuration
 
         if isinstance(channel_configuration, list):
