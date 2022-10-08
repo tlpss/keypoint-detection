@@ -1,32 +1,36 @@
+import copy
 import unittest
 
 import torch
 
-from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
 from keypoint_detection.data.datamodule import KeypointsDataModule
 
 from .configuration import DEFAULT_HPARAMS, TEST_PARAMS
 
 
 class TestDataModule(unittest.TestCase):
-    def setUp(self):
-        self.dataset = COCOKeypointsDataset(**DEFAULT_HPARAMS)
-
     def test_split(self):
         size = TEST_PARAMS["dataset_size"]
         for train_ratio in [1.0, 0.5]:
-            module = KeypointsDataModule(self.dataset, 1, 1 - train_ratio, 2)
+            HPARAMS = copy.deepcopy(DEFAULT_HPARAMS)
+            HPARAMS["batch_size"] = 1
+            HPARAMS["validation_split_ratio"] = 1 - train_ratio
+            module = KeypointsDataModule(**HPARAMS)
             train_dataloader = module.train_dataloader()
             self.assertEqual(len(train_dataloader), train_ratio * size)
             self.assertEqual(len(module.val_dataloader()), (1 - train_ratio) * size)
 
     def test_batch_format(self):
-        batch_size = 3
-        module = KeypointsDataModule(self.dataset, batch_size, 0.0, 2)
+        batch_size = 2
+
+        hparams = copy.deepcopy(DEFAULT_HPARAMS)
+        hparams["batch_size"] = batch_size
+        hparams["validation_split_ratio"] = 0.0
+        module = KeypointsDataModule(**hparams)
         train_dataloader = module.train_dataloader()
 
         batch = next(iter(train_dataloader))
-        self.assertEqual(len(batch), 2)
+        self.assertEqual(len(batch), batch_size)
 
         img, keypoints = batch
 

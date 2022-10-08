@@ -6,7 +6,6 @@ import wandb
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer.trainer import Trainer
 
-from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
 from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
@@ -52,10 +51,7 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     backbone = BackboneFactory.create_backbone(**hparams)
     loss = LossFactory.create_loss(**hparams)
     model = KeypointDetector(backbone=backbone, loss_function=loss, **hparams)
-
-    dataset = COCOKeypointsDataset(**hparams)
-
-    module = KeypointsDataModule(dataset, **hparams)
+    data_module = KeypointsDataModule(**hparams)
     wandb_logger = WandbLogger(
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
@@ -63,7 +59,11 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
         log_model="all",  # log all checkpoints made by PL, see create_trainer for callback
     )
     trainer = create_pl_trainer(hparams, wandb_logger)
-    trainer.fit(model, module)
+    trainer.fit(model, data_module)
+
+    if "json_test_dataset_path" in hparams:
+        trainer.test(model, data_module)
+
     return model, trainer
 
 
@@ -88,7 +88,6 @@ if __name__ == "__main__":
     parser = add_system_args(parser)
     parser = KeypointDetector.add_model_argparse_args(parser)
     parser = Trainer.add_argparse_args(parser)
-    parser = COCOKeypointsDataset.add_argparse_args(parser)
     parser = KeypointsDataModule.add_argparse_args(parser)
     parser = BackboneFactory.add_to_argparse(parser)
     parser = LossFactory.add_to_argparse(parser)

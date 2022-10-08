@@ -43,7 +43,8 @@ For an example, see the `test_dataset` at `test/test_dataset`.
 
 
 ### Labeling
-If you want to label data, we provide integration with the [CVAT](https://github.com/opencv/cvat) labeling tool: You can annotate your data and export it in their custom format, which can then be converted to COCO format. Take a look [here](labeling/Readme.md) for more information on this workflow and an example.
+If you want to label data, we provide integration with the [CVAT](https://github.com/opencv/cvat) labeling tool: You can annotate your data and export it in their custom format, which can then be converted to COCO format. Take a look [here](labeling/Readme.md) for more information on this workflow and an example. To visualize a given dataset, you can use the  `keypoint_detection/utils/visualization.py` script.
+
 ## Training
 
 There are 2 ways to train the keypoint detector:

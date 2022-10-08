@@ -1,9 +1,8 @@
+from argparse import ArgumentParser
 from typing import List
 
-import pytorch_lightning.loggers
 import torch
 import torchvision
-import wandb
 from matplotlib import cm
 
 from keypoint_detection.utils.heatmap import generate_channel_heatmap, get_keypoints_from_heatmap
@@ -54,38 +53,53 @@ def visualize_predictions(
     imgs: torch.Tensor,
     predicted_heatmaps: torch.Tensor,
     gt_heatmaps: torch.Tensor,
-    logger: pytorch_lightning.loggers.WandbLogger,
     minimal_keypoint_pixel_distance: int,
-    keypoint_channel: str,
-    is_validation_step: bool = True,
 ):
     num_images = min(predicted_heatmaps.shape[0], 6)
     keypoint_sigma = max(1, imgs.shape[2] / 64)
 
     predicted_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], predicted_heatmaps[:num_images])
-
     gt_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], gt_heatmaps[:num_images])
-
-    keypoints = [
+    predicted_keypoints = [
         torch.tensor(get_keypoints_from_heatmap(predicted_heatmaps[i].cpu(), minimal_keypoint_pixel_distance))
         for i in range(predicted_heatmaps.shape[0])
     ]
     predicted_keypoints_overlays = overlay_image_with_keypoints(
-        imgs[:num_images], keypoints[:num_images], keypoint_sigma
+        imgs[:num_images], predicted_keypoints[:num_images], keypoint_sigma
     )
 
     images = torch.cat([predicted_heatmap_overlays, predicted_keypoints_overlays, gt_heatmap_overlays])
-
     grid = torchvision.utils.make_grid(images, nrow=num_images)
-    mode = "val" if is_validation_step else "train"
+    return grid
 
-    if isinstance(keypoint_channel, list):
-        if len(keypoint_channel) == 1:
-            keypoint_channel = keypoint_channel[0]
-        else:
-            keypoint_channel = f"{keypoint_channel[0]}+{keypoint_channel[1]}+..."
-    keypoint_channel_short = (keypoint_channel[:40] + "...") if len(keypoint_channel) > 40 else keypoint_channel
-    label = f"{keypoint_channel_short}_{mode}_keypoints"
-    logger.experiment.log(
-        {label: wandb.Image(grid, caption="top: predicted heatmaps, middle: predicted keypoints, bottom: gt heatmap")}
-    )
+
+if __name__ == "__main__":
+    """Script to visualize dataset"""
+    import matplotlib.pyplot as plt
+    from torch.utils.data import DataLoader
+
+    from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
+    from keypoint_detection.train.train import parse_channel_configuration
+    from keypoint_detection.utils.heatmap import create_heatmap_batch
+
+    parser = ArgumentParser()
+    parser.add_argument("json_dataset_path")
+    parser.add_argument("keypoint_channel_configuration")
+    args = parser.parse_args()
+
+    hparams = vars(parser.parse_args())
+    hparams["keypoint_channel_configuration"] = parse_channel_configuration(hparams["keypoint_channel_configuration"])
+
+    dataset = COCOKeypointsDataset(**hparams)
+    batch_size = 6
+    dataloader = DataLoader(dataset, batch_size, shuffle=False, num_workers=0, collate_fn=dataset.collate_fn)
+    images, keypoint_channels = next(iter(dataloader))
+
+    shape = images.shape[2:]
+
+    heatmaps = create_heatmap_batch(shape, keypoint_channels[0], sigma=6.0, device="cpu")
+    grid = visualize_predictions(images, heatmaps, heatmaps, 6)
+
+    image_numpy = grid.permute(1, 2, 0).numpy()
+    plt.imshow(image_numpy)
+    plt.show()
