@@ -3,7 +3,6 @@ import unittest
 import torch
 from pytorch_lightning.loggers import WandbLogger
 
-from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
 from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.unet import Unet
 from keypoint_detection.models.detector import KeypointDetector
@@ -31,7 +30,7 @@ class TestHeatmapUtils(unittest.TestCase):
         self.backbone = Unet(**self.hparams)
         self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
 
-        self.module = KeypointsDataModule(COCOKeypointsDataset(**self.hparams), **self.hparams)
+        self.module = KeypointsDataModule(**self.hparams)
 
     def test_perfect_heatmap_loss(self):
         loss = self.model.heatmap_loss(self.heatmaps, self.heatmaps)
@@ -47,7 +46,7 @@ class TestModel(unittest.TestCase):
         self.backbone = Unet(**self.hparams)
         self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
 
-        self.module = KeypointsDataModule(COCOKeypointsDataset(**self.hparams), **self.hparams)
+        self.module = KeypointsDataModule(**self.hparams)
 
     def test_shared_step_batch(self):
 

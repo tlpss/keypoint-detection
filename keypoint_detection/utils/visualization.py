@@ -74,6 +74,7 @@ def visualize_predictions(
 
 
 if __name__ == "__main__":
+    """Script to visualize dataset"""
     import matplotlib.pyplot as plt
     from torch.utils.data import DataLoader
 

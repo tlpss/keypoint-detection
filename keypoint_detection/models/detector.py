@@ -185,9 +185,10 @@ class KeypointDetector(pl.LightningModule):
             },
         }
 
-    def shared_step(self, batch, batch_idx, include_visualization_data=False) -> Dict[str, Any]:
+    def shared_step(self, batch, batch_idx, include_visualization_data_in_result_dict=False) -> Dict[str, Any]:
         """
-        shared step for train and validation step
+        shared step for train and validation step that computes the heatmaps and losses and
+        creates a result dict for later use in the train, validate and test step.
 
         batch: img, keypoints
         where img is a Nx3xHxW tensor
@@ -231,7 +232,7 @@ class KeypointDetector(pl.LightningModule):
         gt_loss = sum(channel_gt_losses)
         result_dict.update({"loss": loss, "gt_loss": gt_loss})
 
-        if include_visualization_data:
+        if include_visualization_data_in_result_dict:
             result_dict.update(
                 {
                     "input_images": input_images.detach().cpu(),
@@ -245,7 +246,7 @@ class KeypointDetector(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         log_images = batch_idx == 0 and self.current_epoch > 0
-        result_dict = self.shared_step(train_batch, batch_idx, include_visualization_data=log_images)
+        result_dict = self.shared_step(train_batch, batch_idx, include_visualization_data_in_result_dict=log_images)
 
         if log_images:
             image_grids = self.visualize_predictions_channels(result_dict)
@@ -304,7 +305,7 @@ class KeypointDetector(pl.LightningModule):
             self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
 
     def validation_step(self, val_batch, batch_idx):
-        result_dict = self.shared_step(val_batch, batch_idx, include_visualization_data=True)
+        result_dict = self.shared_step(val_batch, batch_idx, include_visualization_data_in_result_dict=True)
 
         if self.is_ap_epoch():
             self.update_ap_metrics(result_dict, self.ap_validation_metrics)
@@ -319,7 +320,7 @@ class KeypointDetector(pl.LightningModule):
         self.log("validation/gt_loss", result_dict["gt_loss"])
 
     def test_step(self, test_batch, batch_idx):
-        result_dict = self.shared_step(test_batch, batch_idx, include_visualization_data=True)
+        result_dict = self.shared_step(test_batch, batch_idx, include_visualization_data_in_result_dict=True)
         self.update_ap_metrics(result_dict, self.ap_test_metrics)
         image_grids = self.visualize_predictions_channels(result_dict)
         self.log_image_grids(image_grids, mode="test")
@@ -371,7 +372,9 @@ class KeypointDetector(pl.LightningModule):
             detected_keypoints = self.extract_detected_keypoints_from_heatmap(predicted_heatmap)
             validation_metric.update(detected_keypoints, formatted_gt_keypoints[i])
 
-    def compute_and_log_metrics_for_channel(self, metrics: KeypointAPMetrics, channel: str, mode: str) -> float:
+    def compute_and_log_metrics_for_channel(
+        self, metrics: KeypointAPMetrics, channel: str, training_mode: str
+    ) -> float:
         """
         logs AP of predictions of single Channel² for each threshold distance (as configured) for the categorization of the keypoints into a confusion matrix.
         Also resets metric and returns resulting meanAP over all channels.
@@ -380,11 +383,11 @@ class KeypointDetector(pl.LightningModule):
         ap_metrics = metrics.compute()
         print(f"{ap_metrics=}")
         for maximal_distance, ap in ap_metrics.items():
-            self.log(f"{mode}/{channel}_ap/d={maximal_distance}", ap)
+            self.log(f"{training_mode}/{channel}_ap/d={maximal_distance}", ap)
 
         mean_ap = sum(ap_metrics.values()) / len(ap_metrics.values())
 
-        self.log(f"{mode}/{channel}_meanAP", mean_ap)  # log top level for wandb hyperparam chart.
+        self.log(f"{training_mode}/{channel}_meanAP", mean_ap)  # log top level for wandb hyperparam chart.
         metrics.reset()
         return mean_ap
 

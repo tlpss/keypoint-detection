@@ -6,7 +6,6 @@ import wandb
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.trainer.trainer import Trainer
 
-from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
 from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
@@ -52,21 +51,7 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     backbone = BackboneFactory.create_backbone(**hparams)
     loss = LossFactory.create_loss(**hparams)
     model = KeypointDetector(backbone=backbone, loss_function=loss, **hparams)
-
-    dataset = COCOKeypointsDataset(**hparams)
-    validation_dataset = None
-    test_dataset = None
-
-    if "json_validation_dataset_path" in hparams:
-        validation_dataset = COCOKeypointsDataset(
-            hparams["json_validation_dataset_path"], hparams["keypoint_channel_configuration"]
-        )
-    if "json_test_dataset_path" in hparams:
-        test_dataset = COCOKeypointsDataset(
-            hparams["json_test_dataset_path"], hparams["keypoint_channel_configuration"]
-        )
-
-    module = KeypointsDataModule(dataset, validation_dataset=validation_dataset, test_dataset=test_dataset, **hparams)
+    data_module = KeypointsDataModule(**hparams)
     wandb_logger = WandbLogger(
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
@@ -74,10 +59,10 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
         log_model="all",  # log all checkpoints made by PL, see create_trainer for callback
     )
     trainer = create_pl_trainer(hparams, wandb_logger)
-    trainer.fit(model, module)
+    trainer.fit(model, data_module)
 
     if "json_test_dataset_path" in hparams:
-        trainer.test(model, module)
+        trainer.test(model, data_module)
 
     return model, trainer
 
@@ -103,27 +88,6 @@ if __name__ == "__main__":
     parser = add_system_args(parser)
     parser = KeypointDetector.add_model_argparse_args(parser)
     parser = Trainer.add_argparse_args(parser)
-
-    datasets_group = parser.add_argument_group("Datasets")
-    datasets_group.add_argument(
-        "--json_dataset_path",
-        type=str,
-        help="Absolute path to the json file that defines the train dataset according to the COCO format.",
-        required=True,
-    )
-    datasets_group.add_argument(
-        "--json_validation_dataset_path",
-        type=str,
-        help="Absolute path to the json file that defines the validation dataset according to the COCO format. \
-            If not specified, the train dataset will be split to create a validation set.",
-    )
-    datasets_group.add_argument(
-        "--json_test_dataset_path",
-        type=str,
-        help="Absolute path to the json file that defines the test dataset according to the COCO format. \
-            If not specified, no test set evaluation will be performed at the end of training.",
-    )
-
     parser = KeypointsDataModule.add_argparse_args(parser)
     parser = BackboneFactory.add_to_argparse(parser)
     parser = LossFactory.add_to_argparse(parser)
