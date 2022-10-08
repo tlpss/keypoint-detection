@@ -1,3 +1,5 @@
+"""A Unet-like backbone that uses a (relatively) small imagenet-pretrained ConvNeXt model from timm as encoder.
+"""
 import timm
 import torch
 import torch.nn as nn
@@ -66,7 +68,7 @@ class ConvNeXtUnet(Backbone):
                     res4 ---1/32----|
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
         # todo: make desired convnext encoder configurable
         self.encoder = timm.create_model("convnext_femto", features_only=True, pretrained=True)
@@ -77,8 +79,6 @@ class ConvNeXtUnet(Backbone):
                 self.encoder.feature_info.info[-i]["num_chs"],
                 self.encoder.feature_info.info[-i - 1]["num_chs"],
             )
-            print(channels_in)
-            print(skip_channels_in)
             block = UpSamplingBlock(channels_in, skip_channels_in, skip_channels_in, 3)
             self.decoder_blocks.append(block)
 

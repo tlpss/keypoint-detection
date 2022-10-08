@@ -85,6 +85,7 @@ class ImageDataset(Dataset, abc.ABC):
             self.image_loader = IOSafeImageLoaderDecorator(ImageLoader())
 
         else:
+            assert isinstance(imageloader, ImageLoader)
             self.image_loader = imageloader
 
     def __getitem__(self, index):

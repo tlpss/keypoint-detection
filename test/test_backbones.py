@@ -2,48 +2,24 @@ import unittest
 
 import torch
 
-from keypoint_detection.models.backbones.convnext_unet import ConvNeXtUnet
-from keypoint_detection.models.backbones.dilated_cnn import DilatedCnn
-from keypoint_detection.models.backbones.s3k import S3K
-from keypoint_detection.models.backbones.unet import UnetBackbone
+from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
+from keypoint_detection.models.backbones.base_backbone import Backbone
 
 
 class TestBackbones(unittest.TestCase):
     def setUp(self) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.x = torch.randn((4, 3, 64, 64)).to(self.device)
 
-    def test_s3k(self):
-        backbone = S3K().to(self.device)
-
-        output = backbone(self.x).cpu()
-        self.assertEqual((output.shape), (4, 32, 64, 64))
-
-    def test_dilated_cnn(self):
-        backbone = DilatedCnn().to(self.device)
-        output = backbone(self.x).cpu()
-        self.assertEqual((output.shape), (4, 32, 64, 64))
-
-    def test_unet(self):
-        backbone = UnetBackbone(
-            n_channels_in=3,
-            n_downsampling_layers=2,
-            n_resnet_blocks=2,
-            n_channels=4,
-            kernel_size=3,
-            dilation=1,
-            test=3,
-        ).to(self.device)
-        output = backbone(self.x).cpu()
-        self.assertEqual((output.shape), (4, 4, 64, 64))
-
-        # check if normalized
-        self.assertAlmostEqual(torch.mean(output).item(), 0.0, places=2)
-        self.assertAlmostEqual(torch.var(output).item(), 1.0, places=2)
-
-    def test_convnext_unet(self):
-        backbone = ConvNeXtUnet().to(self.device)
-        output = backbone(self.x).cpu()
-
-        self.assertEqual(output.shape[-1], 64)
-        self.assertEqual(output.shape[1], backbone.get_n_channels_out())
+    def test_output_format_of_all_registered_backbones(self):
+        kwargs = {
+            "n_channels": 32,
+            "kernel_size": 5,
+        }
+        for backbone in BackboneFactory.registered_backbone_classes:
+            model: Backbone = backbone(**kwargs).to(self.device)
+            shape = (4, 3, 64, 64)
+            x = torch.randn(shape).to(self.device)
+            output = model(x).cpu()
+            self.assertEqual(output.shape[0], shape[0])
+            self.assertEqual(output.shape[-2:], shape[-2:])
+            self.assertEqual(output.shape[1], model.get_n_channels_out())

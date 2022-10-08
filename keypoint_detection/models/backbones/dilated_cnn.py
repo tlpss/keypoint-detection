@@ -1,3 +1,5 @@
+"""A very simple Backbone that uses dilated CNNs without spatial resolution changes.
+"""
 import torch
 import torch.nn as nn
 

@@ -39,7 +39,7 @@ class S3K(Backbone):
     inspired by Peter's version of the backbone.
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.kernel_size = (3, 3)
         super(S3K, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=3, kernel_size=self.kernel_size, padding="same")
@@ -106,3 +106,7 @@ class S3K(Backbone):
 
     def get_n_channels_out(self):
         return 32
+
+
+if __name__ == "__main__":
+    print(Backbone._backbone_registry)

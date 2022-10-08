@@ -1,6 +1,9 @@
 name: Pytest
 
-on: [push]
+on:
+  pull_request:
+  push:
+    branches: main
 
 jobs:
   conda-pytest:
@@ -13,13 +16,12 @@ jobs:
           # Increase this value to reset cache if etc/example-environment.yml has not changed
           CACHE_NUMBER: 0
         with:
-          path: ~/conda_pkgs_dir
+          path: /home/runner/conda_pkgs_dir
           key:
-            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
-            hashFiles('environment.yaml') }}
+            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER}}-${{hashFiles('environment.yaml')}}
       - uses: conda-incubator/setup-miniconda@v2
         with:
-          activate-environment: keypoint-detection
+          activate-environment: keypoint-detection # name of env
           channel-priority: strict
           auto-activate-base: false
           environment-file: environment.yaml
