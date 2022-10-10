@@ -1,7 +1,18 @@
 from typing import List, Tuple
 
+import numpy as np
 import torch
 from skimage.feature import peak_local_max
+
+
+def BCE_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Simple BCE loss. Used to compute the BCE of the ground truth heatmaps as the BCELoss in Pytorch complains
+    about instability in FP16 (even with no_grad).
+    """
+    return -(
+        target * torch.clip(torch.log(input + 1e-10), -100, 100)
+        + (1 - target) * torch.clip(torch.log(1 - input + 1e-10), -100, 100)
+    ).mean()
 
 
 def create_heatmap_batch(
@@ -81,8 +92,8 @@ def get_keypoints_from_heatmap(
         A list of 2D keypoints
     """
 
-    np_heatmap = heatmap.cpu().numpy()
-    # num_peaks and rel_threshold are set to limit computational burder when models do random predictions.
+    np_heatmap = heatmap.cpu().numpy().astype(np.float32)
+    # num_peaks and rel_threshold are set to limit computational burden when models do random predictions.
     if max_keypoints:
         num_peaks = max_keypoints
     else:

@@ -2,11 +2,11 @@ import unittest
 
 import torch
 from pytorch_lightning.loggers import WandbLogger
+from torch import nn
 
 from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.unet import Unet
 from keypoint_detection.models.detector import KeypointDetector
-from keypoint_detection.models.loss import bce_loss
 from keypoint_detection.models.metrics import KeypointAPMetric
 from keypoint_detection.train.utils import create_pl_trainer
 from keypoint_detection.utils.heatmap import create_heatmap_batch, generate_channel_heatmap
@@ -25,15 +25,14 @@ class TestHeatmapUtils(unittest.TestCase):
         self.heatmaps = generate_channel_heatmap(
             (self.image_height, self.image_width), self.keypoints, self.sigma, "cpu"
         )
-        self.loss_function = bce_loss
         self.hparams = DEFAULT_HPARAMS
         self.backbone = Unet(**self.hparams)
-        self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
+        self.model = KeypointDetector(backbone=self.backbone, **self.hparams)
 
         self.module = KeypointsDataModule(**self.hparams)
 
     def test_perfect_heatmap_loss(self):
-        loss = self.model.heatmap_loss(self.heatmaps, self.heatmaps)
+        loss = nn.functional.binary_cross_entropy(self.heatmaps, self.heatmaps)
         self.assertIsInstance(loss, torch.Tensor)
         self.assertTrue(loss >= 0)
         # loss is not zero! (bce)
@@ -41,10 +40,9 @@ class TestHeatmapUtils(unittest.TestCase):
 
 class TestModel(unittest.TestCase):
     def setUp(self) -> None:
-        self.loss_function = bce_loss
         self.hparams = DEFAULT_HPARAMS
         self.backbone = Unet(**self.hparams)
-        self.model = KeypointDetector(backbone=self.backbone, loss_function=self.loss_function, **self.hparams)
+        self.model = KeypointDetector(backbone=self.backbone, **self.hparams)
 
         self.module = KeypointsDataModule(**self.hparams)
 
@@ -54,6 +52,7 @@ class TestModel(unittest.TestCase):
         batch = next(iter(self.module.train_dataloader()))
         result_dict = model.shared_step(batch, 0)
         assert result_dict["loss"]
+        assert isinstance(result_dict["loss"], torch.Tensor)
         assert result_dict["gt_loss"]
 
     def test_train(self):
