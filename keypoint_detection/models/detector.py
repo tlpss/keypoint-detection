@@ -10,6 +10,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.metrics import DetectedKeypoint, Keypoint, KeypointAPMetrics
 from keypoint_detection.utils.heatmap import (
+    BCE_loss,
     compute_keypoint_probability,
     create_heatmap_batch,
     get_keypoints_from_heatmap,
@@ -78,7 +79,6 @@ class KeypointDetector(pl.LightningModule):
         minimal_keypoint_extraction_pixel_distance: int,
         learning_rate: float,
         backbone: Backbone,
-        loss_function,
         keypoint_channel_configuration: List[List[str]],
         ap_epoch_start: int,
         ap_epoch_freq: int,
@@ -108,7 +108,6 @@ class KeypointDetector(pl.LightningModule):
         self.ap_epoch_start = ap_epoch_start
         self.ap_epoch_freq = ap_epoch_freq
         self.minimal_keypoint_pixel_distance = minimal_keypoint_extraction_pixel_distance
-        self.heatmap_loss = loss_function
         self.lr_scheduler_relative_threshold = lr_scheduler_relative_threshold
         self.keypoint_channel_configuration = keypoint_channel_configuration
 
@@ -142,11 +141,10 @@ class KeypointDetector(pl.LightningModule):
         # setting too low would result in loss of gradients..
         head.bias.data.fill_(-4)
 
-        self.model = nn.Sequential(
+        self.unnormalized_model = nn.Sequential(
             backbone,
             head,
-            nn.Sigmoid(),  # create probabilities
-        )
+        )  # NO sigmoid to combine it in the loss! (needed for FP16)
 
         # save hyperparameters to logger, to make sure the model hparams are saved even if
         # they are not included in the config (i.e. if they are kept at the defaults).
@@ -158,7 +156,10 @@ class KeypointDetector(pl.LightningModule):
         x shape must be of shape (N,3,H,W)
         returns tensor with shape (N, n_heatmaps, H,W)
         """
-        return self.model(x)
+        return torch.nn.functional.sigmoid(self.forward_unnormalized(x))
+
+    def forward_unnormalized(self, x: torch.Tensor):
+        return self.unnormalized_model(x)
 
     def configure_optimizers(self):
         """
@@ -209,19 +210,21 @@ class KeypointDetector(pl.LightningModule):
         input_images = input_images.to(self.device)
 
         ## predict and compute losses
-        predicted_heatmaps = self.forward(input_images)
-
+        predicted_unnormalized_maps = self.forward_unnormalized(input_images)
+        predicted_heatmaps = torch.nn.functional.sigmoid(predicted_unnormalized_maps)
         channel_losses = []
         channel_gt_losses = []
 
         result_dict = {}
         for channel_idx in range(len(self.keypoint_channel_configuration)):
             channel_losses.append(
-                self.heatmap_loss(predicted_heatmaps[:, channel_idx, :, :], gt_heatmaps[channel_idx])
+                # combines sigmoid with BCE for increased stability.
+                nn.functional.binary_cross_entropy_with_logits(
+                    predicted_unnormalized_maps[:, channel_idx, :, :], gt_heatmaps[channel_idx]
+                )
             )
-            channel_gt_losses.append(
-                self.heatmap_loss(gt_heatmaps[channel_idx], gt_heatmaps[channel_idx])
-            )  # BCE gt loss does not go to zero but to the entropy!
+            with torch.no_grad():
+                channel_gt_losses.append(BCE_loss(gt_heatmaps[channel_idx], gt_heatmaps[channel_idx]))
 
             # pass losses and other info to result dict
             result_dict.update(

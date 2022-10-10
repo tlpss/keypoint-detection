@@ -9,7 +9,6 @@ from pytorch_lightning.trainer.trainer import Trainer
 from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
-from keypoint_detection.models.loss import LossFactory
 from keypoint_detection.train.utils import create_pl_trainer
 from keypoint_detection.utils.path import get_wandb_log_dir_path
 
@@ -49,8 +48,7 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     pl.seed_everything(hparams["seed"], workers=True)
 
     backbone = BackboneFactory.create_backbone(**hparams)
-    loss = LossFactory.create_loss(**hparams)
-    model = KeypointDetector(backbone=backbone, loss_function=loss, **hparams)
+    model = KeypointDetector(backbone=backbone, **hparams)
     data_module = KeypointsDataModule(**hparams)
     wandb_logger = WandbLogger(
         project=hparams["wandb_project"],
@@ -90,7 +88,6 @@ if __name__ == "__main__":
     parser = Trainer.add_argparse_args(parser)
     parser = KeypointsDataModule.add_argparse_args(parser)
     parser = BackboneFactory.add_to_argparse(parser)
-    parser = LossFactory.add_to_argparse(parser)
 
     # get parser arguments and filter the specified arguments
     hparams = vars(parser.parse_args())
