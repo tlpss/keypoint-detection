@@ -149,14 +149,14 @@ class KeypointDetector(pl.LightningModule):
         # save hyperparameters to logger, to make sure the model hparams are saved even if
         # they are not included in the config (i.e. if they are kept at the defaults).
         # this is for later reference and consistency.
-        self.save_hyperparameters(ignore="**kwargs")
+        self.save_hyperparameters(ignore=["**kwargs", "backbone"])
 
     def forward(self, x: torch.Tensor):
         """
         x shape must be of shape (N,3,H,W)
         returns tensor with shape (N, n_heatmaps, H,W)
         """
-        return torch.nn.functional.sigmoid(self.forward_unnormalized(x))
+        return torch.sigmoid(self.forward_unnormalized(x))
 
     def forward_unnormalized(self, x: torch.Tensor):
         return self.unnormalized_model(x)
@@ -211,7 +211,7 @@ class KeypointDetector(pl.LightningModule):
 
         ## predict and compute losses
         predicted_unnormalized_maps = self.forward_unnormalized(input_images)
-        predicted_heatmaps = torch.nn.functional.sigmoid(predicted_unnormalized_maps)
+        predicted_heatmaps = torch.sigmoid(predicted_unnormalized_maps)
         channel_losses = []
         channel_gt_losses = []
 

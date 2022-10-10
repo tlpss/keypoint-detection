@@ -11,6 +11,7 @@ from typing import Callable, Dict, List, Tuple
 
 import torch
 from torchmetrics import Metric
+from torchmetrics.utilities import check_forward_full_state_property
 
 
 @dataclass
@@ -167,6 +168,8 @@ def calculate_ap_from_pr(precision: List[float], recall: List[float]) -> float:
 class KeypointAPMetric(Metric):
     """torchmetrics-like interface for the Average Precision implementation"""
 
+    full_state_update = False
+
     def __init__(self, keypoint_threshold_distance: float, dist_sync_on_step=False):
         """
 
@@ -204,6 +207,8 @@ class KeypointAPMetrics(Metric):
     Uses KeypointAPMetric class.
     """
 
+    full_state_update = False
+
     def __init__(self, keypoint_threshold_distances: List[float], dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
@@ -222,3 +227,13 @@ class KeypointAPMetrics(Metric):
     def reset(self) -> None:
         for metric in self.ap_metrics:
             metric.reset()
+
+
+if __name__ == "__main__":
+    print(
+        check_forward_full_state_property(
+            KeypointAPMetric,
+            init_args={"keypoint_threshold_distance": 2.0},
+            input_args={"detected_keypoints": [DetectedKeypoint(10, 20, 0.02)], "gt_keypoints": [Keypoint(10, 23)]},
+        )
+    )

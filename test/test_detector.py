@@ -52,6 +52,7 @@ class TestModel(unittest.TestCase):
         batch = next(iter(self.module.train_dataloader()))
         result_dict = model.shared_step(batch, 0)
         assert result_dict["loss"]
+        assert isinstance(result_dict["loss"], torch.Tensor)
         assert result_dict["gt_loss"]
 
     def test_train(self):
