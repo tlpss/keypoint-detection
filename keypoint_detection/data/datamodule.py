@@ -1,5 +1,7 @@
 import argparse
+import random
 
+import numpy as np
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader
@@ -13,7 +15,7 @@ class KeypointsDataModule(pl.LightningDataModule):
         """
         add named arguments from the init function to the parser
         """
-        parser = parent_parser.add_argument_group("RandomSplitDatamodule")
+        parser = parent_parser.add_argument_group("KeypointsDatamodule")
         parser.add_argument("--batch_size", default=16, type=int)
         parser.add_argument("--validation_split_ratio", default=0.25, type=float)
         parser.add_argument("--num_workers", default=4, type=int)
@@ -82,17 +84,27 @@ class KeypointsDataModule(pl.LightningDataModule):
             shuffle=True,
             num_workers=self.num_workers,
             collate_fn=COCOKeypointsDataset.collate_fn,
+            pin_memory=True,
         )
         return dataloader
 
     def val_dataloader(self):
+        def seed_worker(worker_id):
+            worker_seed = torch.initial_seed() % 2**32
+            np.random.seed(worker_seed)
+            random.seed(worker_seed)
+
+        g = torch.Generator()
+        g.manual_seed(0)
         # num workers to zero to avoid non-reproducibility bc of random seeds for workers
         # cf. https://pytorch.org/docs/stable/notes/randomness.html
         dataloader = DataLoader(
             self.validation_dataset,
             self.batch_size,
             shuffle=False,
-            num_workers=0,
+            num_workers=self.num_workers,
+            worker_init_fn=seed_worker,
+            generator=g,
             collate_fn=COCOKeypointsDataset.collate_fn,
         )
         return dataloader
