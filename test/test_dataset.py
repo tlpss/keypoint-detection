@@ -22,6 +22,9 @@ class TestDataSet(unittest.TestCase):
         self.assertEqual(len(keypoints), len(DEFAULT_HPARAMS["keypoint_channel_configuration"]))
         ch1, ch2 = keypoints
 
+        # check keypoints is (u,v) w/o visibility flag
+        self.assertEqual(len(ch1[0]),2)
+
         # check img 1
         self.assertEqual(img.shape, (3, TEST_PARAMS["image_size"], TEST_PARAMS["image_size"]))
         self.assertEqual(len(ch1), len(DEFAULT_HPARAMS["keypoint_channel_configuration"][0]))

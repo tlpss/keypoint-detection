@@ -1,4 +1,5 @@
 import argparse
+from audioop import mul
 import random
 
 import numpy as np
@@ -7,7 +8,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
-
+from keypoint_detection.data.augmentations import MultiChannelKeypointsCompose
+import albumentations as A
 
 class KeypointsDataModule(pl.LightningDataModule):
     @staticmethod
@@ -37,6 +39,10 @@ class KeypointsDataModule(pl.LightningDataModule):
             help="Absolute path to the json file that defines the test dataset according to the COCO format. \
                 If not specified, no test set evaluation will be performed at the end of training.",
         )
+
+        parser.add_argument('--augment_train', dest='augment_train', default=False, action='store_true')
+        parent_parser = COCOKeypointsDataset.add_argparse_args(parent_parser)
+
         return parent_parser
 
     def __init__(
@@ -48,13 +54,15 @@ class KeypointsDataModule(pl.LightningDataModule):
         num_workers: int,
         json_validation_dataset_path: str = None,
         json_test_dataset_path=None,
+        augment_train: bool = False,
         **kwargs
     ):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
-
+        self.augment_train = augment_train
         self.train_dataset = COCOKeypointsDataset(json_dataset_path, keypoint_channel_configuration, **kwargs)
+
         self.validation_dataset = None
         self.test_dataset = None
 
@@ -69,6 +77,16 @@ class KeypointsDataModule(pl.LightningDataModule):
 
         if json_test_dataset_path:
             self.test_dataset = COCOKeypointsDataset(json_test_dataset_path, keypoint_channel_configuration, **kwargs)
+
+        if augment_train:
+            img_size = self.train_dataset[0][0].shape[1] # assume rectangular!
+            train_transform = MultiChannelKeypointsCompose([
+                A.ColorJitter(),
+                A.RandomRotate90(),
+                A.HorizontalFlip(),
+                A.RandomResizedCrop(img_size, img_size,scale=(0.8,1.0),ratio= (0.95,1.0)),
+            ])
+            self.train_dataset.transform = train_transform
 
     @staticmethod
     def _split_dataset(dataset, validation_split_ratio):

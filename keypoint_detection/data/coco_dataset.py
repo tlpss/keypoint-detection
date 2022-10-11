@@ -1,5 +1,6 @@
 import argparse
 import json
+from random import random
 import typing
 from collections import defaultdict
 from pathlib import Path
@@ -10,7 +11,9 @@ from torchvision.transforms import ToTensor
 
 from keypoint_detection.data.coco_parser import CocoImage, CocoKeypointCategory, CocoKeypoints
 from keypoint_detection.data.imageloader import ImageDataset, ImageLoader
-
+from typing import Tuple
+from keypoint_detection.types import KEYPOINT_TYPE, COCO_KEYPOINT_TYPE, CHANNEL_KEYPOINTS_TYPE, IMG_KEYPOINTS_TYPE
+import albumentations as A
 
 class COCOKeypointsDataset(ImageDataset):
     """Pytorch Dataset for COCO-formatted Keypoint dataset
@@ -40,18 +43,11 @@ class COCOKeypointsDataset(ImageDataset):
         """
         parser = parent_parser.add_argument_group("COCOkeypointsDataset")
         parser.add_argument(
-            "--json_dataset_path",
-            required=True,
-            type=str,
-            help="Absolute path to the json file that defines the dataset according to the COCO format.",
-        )
-        parser.add_argument(
             "--detect_non_visible_keypoints",
             default=True,
             type=str,
             help="detect keypoints with visibility flag = 1? default = True",
         )
-
         return parent_parser
 
     def __init__(
@@ -59,6 +55,7 @@ class COCOKeypointsDataset(ImageDataset):
         json_dataset_path: str,
         keypoint_channel_configuration: list[list[str]],
         detect_non_visible_keypoints: bool = True,
+        transform: A.Compose = None,
         imageloader: ImageLoader = None,
         **kwargs
     ):
@@ -71,18 +68,20 @@ class COCOKeypointsDataset(ImageDataset):
         self.keypoint_channel_configuration = keypoint_channel_configuration
         self.detect_non_visible_keypoints = detect_non_visible_keypoints
 
+        self.random_crop_transform = None
+        self.transform = transform
         self.dataset = self.prepare_dataset()  # idx: (image, list(keypoints/channel))
 
     def __len__(self):
         return len(self.dataset)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> Tuple[torch.Tensor, IMG_KEYPOINTS_TYPE]:
         """
         Returns:
             (image, keypoints); image = 3xHxW tensor; keypoints = List(c x list( list of K_i keypoints ))
 
             e.g. for 2 heatmap channels with respectively 1,2 keypoints, the keypoints list will be formatted as
-            [[[u11,v11,f11]],[[u21,v21,f21],[u22,v22,f22]]]
+            [[[u11,v11]],[[u21,v21],[u22,v22]]]
         """
         if torch.is_tensor(index):
             index = index.tolist()
@@ -90,11 +89,15 @@ class COCOKeypointsDataset(ImageDataset):
 
         image_path = self.dataset_dir_path / self.dataset[index][0]
         image = self.image_loader.get_image(str(image_path), index)
+
+        keypoints = self.dataset[index][1]
+
+        if self.transform:
+            transformed = self.transform(image=image, keypoints=keypoints)
+            image,keypoints =  transformed["image"], transformed["keypoints"]
+        
         image = self.image_to_tensor_transform(image)
-
-        keypoints_per_channel = self.dataset[index][1]
-
-        return image, keypoints_per_channel
+        return image, keypoints
 
     def prepare_dataset(self):
         """Prepares the dataset to map from COCO to (img, [keypoints for each channel])
@@ -159,7 +162,7 @@ class COCOKeypointsDataset(ImageDataset):
                 return i
         return -1
 
-    def is_keypoint_visible(self, keypoint: List) -> bool:
+    def is_keypoint_visible(self, keypoint: COCO_KEYPOINT_TYPE) -> bool:
         """
         Args:
             keypoint (list): [u,v,flag]
@@ -173,7 +176,7 @@ class COCOKeypointsDataset(ImageDataset):
         return keypoint[2] > minimal_flag
 
     @staticmethod
-    def split_list_in_keypoints(list_to_split: List) -> List[List]:
+    def split_list_in_keypoints(list_to_split: List[COCO_KEYPOINT_TYPE]) -> List[List[COCO_KEYPOINT_TYPE]]:
         """
         splits list [u1,v1,f1,u2,v2,f2,...] to [[u,v,f],..]
         """

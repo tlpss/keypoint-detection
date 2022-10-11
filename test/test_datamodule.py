@@ -7,6 +7,7 @@ from keypoint_detection.data.datamodule import KeypointsDataModule
 
 from .configuration import DEFAULT_HPARAMS, TEST_PARAMS
 
+import random 
 
 class TestDataModule(unittest.TestCase):
     def test_split(self):
@@ -49,3 +50,22 @@ class TestDataModule(unittest.TestCase):
 
         self.assertIsInstance(ch1[0], torch.Tensor)
         self.assertIsInstance(ch2[0], torch.Tensor)
+
+    def test_augmentations_result_in_different_image(self):
+        random.seed(2022)
+        hparams = copy.deepcopy(DEFAULT_HPARAMS)
+        module = KeypointsDataModule(**hparams)
+        train_dataloader = module.train_dataloader()
+
+        batch = next(iter(train_dataloader))
+        img, _ = batch
+
+        hparams = copy.deepcopy(DEFAULT_HPARAMS)
+        hparams["augment_train"] = True
+        module = KeypointsDataModule(**hparams)
+        train_dataloader = module.train_dataloader()
+
+        batch = next(iter(train_dataloader))
+        transformed_img, _ = batch
+        # check both images are not equal.
+        self.assertTrue(torch.linalg.norm(img-transformed_img))

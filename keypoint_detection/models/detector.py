@@ -110,7 +110,6 @@ class KeypointDetector(pl.LightningModule):
         self.minimal_keypoint_pixel_distance = minimal_keypoint_extraction_pixel_distance
         self.lr_scheduler_relative_threshold = lr_scheduler_relative_threshold
         self.keypoint_channel_configuration = keypoint_channel_configuration
-
         # parse the gt pixel distances
         if isinstance(maximal_gt_keypoint_pixel_distances, str):
             maximal_gt_keypoint_pixel_distances = [
