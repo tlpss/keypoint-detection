@@ -23,7 +23,7 @@ class TestDataSet(unittest.TestCase):
         ch1, ch2 = keypoints
 
         # check keypoints is (u,v) w/o visibility flag
-        self.assertEqual(len(ch1[0]),2)
+        self.assertEqual(len(ch1[0]), 2)
 
         # check img 1
         self.assertEqual(img.shape, (3, TEST_PARAMS["image_size"], TEST_PARAMS["image_size"]))

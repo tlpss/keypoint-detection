@@ -1,4 +1,5 @@
 import copy
+import random
 import unittest
 
 import torch
@@ -7,7 +8,6 @@ from keypoint_detection.data.datamodule import KeypointsDataModule
 
 from .configuration import DEFAULT_HPARAMS, TEST_PARAMS
 
-import random 
 
 class TestDataModule(unittest.TestCase):
     def test_split(self):
@@ -68,4 +68,4 @@ class TestDataModule(unittest.TestCase):
         batch = next(iter(train_dataloader))
         transformed_img, _ = batch
         # check both images are not equal.
-        self.assertTrue(torch.linalg.norm(img-transformed_img))
+        self.assertTrue(torch.linalg.norm(img - transformed_img))

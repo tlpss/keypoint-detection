@@ -1,15 +1,15 @@
 import argparse
-from audioop import mul
 import random
 
+import albumentations as A
 import numpy as np
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader
 
-from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
 from keypoint_detection.data.augmentations import MultiChannelKeypointsCompose
-import albumentations as A
+from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
+
 
 class KeypointsDataModule(pl.LightningDataModule):
     @staticmethod
@@ -40,7 +40,7 @@ class KeypointsDataModule(pl.LightningDataModule):
                 If not specified, no test set evaluation will be performed at the end of training.",
         )
 
-        parser.add_argument('--augment_train', dest='augment_train', default=False, action='store_true')
+        parser.add_argument("--augment_train", dest="augment_train", default=False, action="store_true")
         parent_parser = COCOKeypointsDataset.add_argparse_args(parent_parser)
 
         return parent_parser
@@ -79,13 +79,15 @@ class KeypointsDataModule(pl.LightningDataModule):
             self.test_dataset = COCOKeypointsDataset(json_test_dataset_path, keypoint_channel_configuration, **kwargs)
 
         if augment_train:
-            img_size = self.train_dataset[0][0].shape[1] # assume rectangular!
-            train_transform = MultiChannelKeypointsCompose([
-                A.ColorJitter(),
-                A.RandomRotate90(),
-                A.HorizontalFlip(),
-                A.RandomResizedCrop(img_size, img_size,scale=(0.8,1.0),ratio= (0.95,1.0)),
-            ])
+            img_size = self.train_dataset[0][0].shape[1]  # assume rectangular!
+            train_transform = MultiChannelKeypointsCompose(
+                [
+                    A.ColorJitter(),
+                    A.RandomRotate90(),
+                    A.HorizontalFlip(),
+                    A.RandomResizedCrop(img_size, img_size, scale=(0.8, 1.0), ratio=(0.95, 1.0)),
+                ]
+            )
             self.train_dataset.transform = train_transform
 
     @staticmethod

@@ -1,19 +1,18 @@
 import argparse
 import json
-from random import random
 import typing
 from collections import defaultdict
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
+import albumentations as A
 import torch
 from torchvision.transforms import ToTensor
 
 from keypoint_detection.data.coco_parser import CocoImage, CocoKeypointCategory, CocoKeypoints
 from keypoint_detection.data.imageloader import ImageDataset, ImageLoader
-from typing import Tuple
-from keypoint_detection.types import KEYPOINT_TYPE, COCO_KEYPOINT_TYPE, CHANNEL_KEYPOINTS_TYPE, IMG_KEYPOINTS_TYPE
-import albumentations as A
+from keypoint_detection.types import COCO_KEYPOINT_TYPE, IMG_KEYPOINTS_TYPE
+
 
 class COCOKeypointsDataset(ImageDataset):
     """Pytorch Dataset for COCO-formatted Keypoint dataset
@@ -94,8 +93,8 @@ class COCOKeypointsDataset(ImageDataset):
 
         if self.transform:
             transformed = self.transform(image=image, keypoints=keypoints)
-            image,keypoints =  transformed["image"], transformed["keypoints"]
-        
+            image, keypoints = transformed["image"], transformed["keypoints"]
+
         image = self.image_to_tensor_transform(image)
         return image, keypoints
 
