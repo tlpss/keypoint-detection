@@ -1,4 +1,5 @@
 import timm
+import torch
 import torch.nn as nn
 from torchvision.models.feature_extraction import create_feature_extractor
 
@@ -22,7 +23,7 @@ class MaxVitUnet(Backbone):
 
     The model can deal with input sizes divisible by 32, but for pretrained weights you are restricted to multiples of the pretrained
     models: 224, 256, 384. From the accompanying notebook, it seems that the model easily handles images that are 3 times as big as the
-    training size.
+    training size. (see https://github.com/rwightman/pytorch-image-models/issues/1475 for more details)
 
     For now only 256 is supported so input sizes are restricted to 256,512,...
 
@@ -37,13 +38,13 @@ class MaxVitUnet(Backbone):
 
     # manually gathered for maxvit_nano_rw_256
     feature_config = [
-        {"down": 2, "channels": 32},
+        {"down": 2, "channels": 64},
         {"down": 4, "channels": 64},
         {"down": 8, "channels": 128},
         {"down": 16, "channels": 256},
         {"down": 32, "channels": 512},
     ]
-    feature_layers = ["stem", "stages.0.blocks.0", "stages.1.blocks.1", "stages.2.blocks.1", "stages.3.blocks.0"]
+    feature_layers = ["stem", "stages.0", "stages.1", "stages.2", "stages.3"]
 
     def __init__(self, **kwargs) -> None:
         super().__init__()
@@ -69,3 +70,19 @@ class MaxVitUnet(Backbone):
 
     def get_n_channels_out(self):
         return self.feature_config[0]["channels"]
+
+
+if __name__ == "__main__":
+    # model = timm.create_model("maxvit_rmlp_pico_rw_256")
+    model = timm.create_model("maxvit_nano_rw_256")
+    feature_extractor = create_feature_extractor(model, ["stem", "stages.0", "stages.1", "stages.2", "stages.3"])
+    x = torch.zeros((1, 3, 256, 256))
+    features = list(feature_extractor(x).values())
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"num params = {n_params/10**6:.2f} M")
+    feature_config = []
+    for x in features:
+        print(f"{x.shape=}")
+        config = {"down": 256 // x.shape[2], "channels": x.shape[1]}
+        feature_config.append(config)
+    print(f"{feature_config=}")
