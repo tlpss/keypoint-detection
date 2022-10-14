@@ -4,6 +4,7 @@ import torch
 
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.backbones.base_backbone import Backbone
+from keypoint_detection.models.backbones.maxvit_unet import MaxVitUnet
 
 
 class TestBackbones(unittest.TestCase):
@@ -18,6 +19,12 @@ class TestBackbones(unittest.TestCase):
         for backbone in BackboneFactory.registered_backbone_classes:
             model: Backbone = backbone(**kwargs).to(self.device)
             shape = (4, 3, 64, 64)
+            if isinstance(model, MaxVitUnet):
+                # MaxVit can deal with multiples of 32 as input shape,
+                #  but pretraind weights are only available for 224,256,...
+                # and for now only 256 is implemented (see MaxViTUnet class)
+                shape = (4, 3, 256, 256)
+
             x = torch.randn(shape).to(self.device)
             output = model(x).cpu()
             self.assertEqual(output.shape[0], shape[0])
