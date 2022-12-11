@@ -125,7 +125,7 @@ class COCOKeypointsDataset(ImageDataset):
                 # add all keypoints from this annotation to the corresponding image in the dict
 
                 img = img_dict[annotation.image_id]
-                category = category_dict[category.id]
+                category = category_dict[annotation.category_id]
                 semantic_classes = category.keypoints
 
                 keypoints = annotation.keypoints
