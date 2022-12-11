@@ -1,3 +1,4 @@
+import os
 import unittest
 
 import torch
@@ -5,11 +6,13 @@ from pytorch_lightning.loggers import WandbLogger
 from torch import nn
 
 from keypoint_detection.data.datamodule import KeypointsDataModule
+from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.backbones.unet import Unet
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.metrics import KeypointAPMetric
 from keypoint_detection.train.utils import create_pl_trainer
 from keypoint_detection.utils.heatmap import create_heatmap_batch, generate_channel_heatmap
+from keypoint_detection.utils.load_checkpoints import load_from_checkpoint
 from keypoint_detection.utils.path import get_wandb_log_dir_path
 
 from .configuration import DEFAULT_HPARAMS
@@ -41,7 +44,7 @@ class TestHeatmapUtils(unittest.TestCase):
 class TestModel(unittest.TestCase):
     def setUp(self) -> None:
         self.hparams = DEFAULT_HPARAMS
-        self.backbone = Unet(**self.hparams)
+        self.backbone = BackboneFactory.create_backbone(**self.hparams)
         self.model = KeypointDetector(backbone=self.backbone, **self.hparams)
 
         self.module = KeypointsDataModule(**self.hparams)
@@ -96,3 +99,15 @@ class TestModel(unittest.TestCase):
 
         self.assertTrue(torch.mean(heatmap).item() < 0.1)
         self.assertTrue(torch.var(heatmap).item() < 0.1)
+
+    def test_checkpoint_loading(self):
+        wandb_logger = WandbLogger(dir=get_wandb_log_dir_path(), mode="offline")
+
+        model = self.model
+        trainer = create_pl_trainer(self.hparams, wandb_logger)
+        trainer.fit(model, self.module)
+
+        trainer.save_checkpoint("test.ckpt")
+        checkpointed_model = load_from_checkpoint("test.ckpt")
+        os.remove("test.ckpt")
+        assert checkpointed_model

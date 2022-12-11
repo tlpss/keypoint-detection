@@ -147,7 +147,7 @@ class KeypointDetector(pl.LightningModule):
 
         # save hyperparameters to logger, to make sure the model hparams are saved even if
         # they are not included in the config (i.e. if they are kept at the defaults).
-        # this is for later reference and consistency.
+        # this is for later reference (e.g. checkpoint loading) and consistency.
         self.save_hyperparameters(ignore=["**kwargs", "backbone"])
 
     def forward(self, x: torch.Tensor):
@@ -307,6 +307,7 @@ class KeypointDetector(pl.LightningModule):
             self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
 
     def validation_step(self, val_batch, batch_idx):
+        # no need to switch model to eval mode, this is handled by pytorch lightning
         result_dict = self.shared_step(val_batch, batch_idx, include_visualization_data_in_result_dict=True)
 
         if self.is_ap_epoch():
@@ -322,6 +323,7 @@ class KeypointDetector(pl.LightningModule):
         self.log("validation/gt_loss", result_dict["gt_loss"])
 
     def test_step(self, test_batch, batch_idx):
+        # no need to switch model to eval mode, this is handled by pytorch lightning
         result_dict = self.shared_step(test_batch, batch_idx, include_visualization_data_in_result_dict=True)
         self.update_ap_metrics(result_dict, self.ap_test_metrics)
         image_grids = self.visualize_predictions_channels(result_dict)

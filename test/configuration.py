@@ -23,7 +23,7 @@ DEFAULT_HPARAMS = {
     "batch_size": 2,
     "validation_split_ratio": 0.25,
     "num_workers": 2,
-    "bacbone_type": "DilatedCnn",
+    "backbone_type": "DilatedCnn",
     "learning_rate": 3e-4,
     "lr_scheduler_relative_threshold": 0.01,
     "ap_epoch_start": 4,
