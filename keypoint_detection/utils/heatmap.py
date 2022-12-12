@@ -78,7 +78,7 @@ def generate_channel_heatmap(
 
 
 def get_keypoints_from_heatmap(
-    heatmap: torch.Tensor, min_keypoint_pixel_distance: int, max_keypoints=0
+    heatmap: torch.Tensor, min_keypoint_pixel_distance: int, max_keypoints=-1
 ) -> List[Tuple[int, int]]:
     """
     Extracts at most 20 keypoints from a heatmap, where each keypoint is defined as being a local maximum within a 2D mask [ -min_pixel_distance, + pixel_distance]^2
