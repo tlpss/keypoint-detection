@@ -89,6 +89,7 @@ class KeypointDetector(pl.LightningModule):
         ap_epoch_start: int,
         ap_epoch_freq: int,
         lr_scheduler_relative_threshold: float,
+        max_keypoints: int,
         **kwargs,
     ):
         """[summary]
@@ -115,6 +116,7 @@ class KeypointDetector(pl.LightningModule):
         self.ap_epoch_freq = ap_epoch_freq
         self.minimal_keypoint_pixel_distance = minimal_keypoint_extraction_pixel_distance
         self.lr_scheduler_relative_threshold = lr_scheduler_relative_threshold
+        self.max_keypoints = max_keypoints
         self.keypoint_channel_configuration = keypoint_channel_configuration
         # parse the gt pixel distances
         if isinstance(maximal_gt_keypoint_pixel_distances, str):
