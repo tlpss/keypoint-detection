@@ -417,7 +417,9 @@ class KeypointDetector(pl.LightningModule):
         heatmap (torch.Tensor) : H x W tensor that represents a heatmap.
         """
 
-        detected_keypoints = get_keypoints_from_heatmap(heatmap, self.minimal_keypoint_pixel_distance, self.max_keypoints)
+        detected_keypoints = get_keypoints_from_heatmap(
+            heatmap, self.minimal_keypoint_pixel_distance, self.max_keypoints
+        )
         keypoint_probabilities = compute_keypoint_probability(heatmap, detected_keypoints)
         detected_keypoints = [
             DetectedKeypoint(detected_keypoints[i][0], detected_keypoints[i][1], keypoint_probabilities[i])
