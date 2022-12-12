@@ -70,6 +70,12 @@ class KeypointDetector(pl.LightningModule):
             type=float,
             help="relative threshold for the OnPlateauLRScheduler. If the training epoch loss does not decrease with this fraction for 2 consective epochs, lr is decreased with factor 10.",
         )
+        parser.add_argument(
+            "--max_keypoints",
+            default=-1,
+            type=int,
+            help="the maximum number of keypoints to predict from the generated heatmaps. If set to -1, skimage will look for all peaks in the heatmap, if set to N (N>0) it will return the N most most certain ones.",
+        )
         return parent_parser
 
     def __init__(
@@ -409,7 +415,7 @@ class KeypointDetector(pl.LightningModule):
         heatmap (torch.Tensor) : H x W tensor that represents a heatmap.
         """
 
-        detected_keypoints = get_keypoints_from_heatmap(heatmap, self.minimal_keypoint_pixel_distance)
+        detected_keypoints = get_keypoints_from_heatmap(heatmap, self.minimal_keypoint_pixel_distance, self.max_keypoints)
         keypoint_probabilities = compute_keypoint_probability(heatmap, detected_keypoints)
         detected_keypoints = [
             DetectedKeypoint(detected_keypoints[i][0], detected_keypoints[i][1], keypoint_probabilities[i])
