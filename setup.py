@@ -13,7 +13,7 @@ setup(
         "torchvision>=0.11",
         "pytorch-lightning>=1.5.10",
         "torchmetrics>=0.7",
-        "wandb<=0.13.4",  # artifact bug https://github.com/wandb/wandb/issues/4500
+        "wandb>=0.13.7",  # artifact bug https://github.com/wandb/wandb/issues/4500
         "timm>=0.6.11",  # requires smallsized convnext models
         "tqdm",
         "pytest",
