@@ -70,6 +70,12 @@ class KeypointDetector(pl.LightningModule):
             type=float,
             help="relative threshold for the OnPlateauLRScheduler. If the training epoch loss does not decrease with this fraction for 2 consective epochs, lr is decreased with factor 10.",
         )
+        parser.add_argument(
+            "--max_keypoints",
+            default=20,
+            type=int,
+            help="the maximum number of keypoints to predict from the generated heatmaps. If set to -1, skimage will look for all peaks in the heatmap, if set to N (N>0) it will return the N most most certain ones.",
+        )
         return parent_parser
 
     def __init__(
@@ -83,6 +89,7 @@ class KeypointDetector(pl.LightningModule):
         ap_epoch_start: int,
         ap_epoch_freq: int,
         lr_scheduler_relative_threshold: float,
+        max_keypoints: int,
         **kwargs,
     ):
         """[summary]
@@ -109,6 +116,7 @@ class KeypointDetector(pl.LightningModule):
         self.ap_epoch_freq = ap_epoch_freq
         self.minimal_keypoint_pixel_distance = minimal_keypoint_extraction_pixel_distance
         self.lr_scheduler_relative_threshold = lr_scheduler_relative_threshold
+        self.max_keypoints = max_keypoints
         self.keypoint_channel_configuration = keypoint_channel_configuration
         # parse the gt pixel distances
         if isinstance(maximal_gt_keypoint_pixel_distances, str):
@@ -409,7 +417,9 @@ class KeypointDetector(pl.LightningModule):
         heatmap (torch.Tensor) : H x W tensor that represents a heatmap.
         """
 
-        detected_keypoints = get_keypoints_from_heatmap(heatmap, self.minimal_keypoint_pixel_distance)
+        detected_keypoints = get_keypoints_from_heatmap(
+            heatmap, self.minimal_keypoint_pixel_distance, self.max_keypoints
+        )
         keypoint_probabilities = compute_keypoint_probability(heatmap, detected_keypoints)
         detected_keypoints = [
             DetectedKeypoint(detected_keypoints[i][0], detected_keypoints[i][1], keypoint_probabilities[i])

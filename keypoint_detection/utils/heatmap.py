@@ -78,7 +78,7 @@ def generate_channel_heatmap(
 
 
 def get_keypoints_from_heatmap(
-    heatmap: torch.Tensor, min_keypoint_pixel_distance: int, max_keypoints=None
+    heatmap: torch.Tensor, min_keypoint_pixel_distance: int, max_keypoints: int = 20
 ) -> List[Tuple[int, int]]:
     """
     Extracts at most 20 keypoints from a heatmap, where each keypoint is defined as being a local maximum within a 2D mask [ -min_pixel_distance, + pixel_distance]^2
@@ -87,20 +87,25 @@ def get_keypoints_from_heatmap(
     Args:
         heatmap : heatmap image
         min_keypoint_pixel_distance : The size of the local mask
+        max_keypoints: the amount of keypoints to determine from the heatmap, -1 to return all points. Defaults to 20 to limit computational burder
+        for models that predict random keypoints in early stage of training.
 
     Returns:
         A list of 2D keypoints
     """
 
     np_heatmap = heatmap.cpu().numpy().astype(np.float32)
+
     # num_peaks and rel_threshold are set to limit computational burden when models do random predictions.
-    if max_keypoints:
-        num_peaks = max_keypoints
-    else:
-        num_peaks = 20
+    max_keypoints = max_keypoints if max_keypoints > 0 else np.inf
     keypoints = peak_local_max(
-        np_heatmap, min_distance=min_keypoint_pixel_distance, threshold_rel=0.1, threshold_abs=0.1, num_peaks=num_peaks
+        np_heatmap,
+        min_distance=min_keypoint_pixel_distance,
+        threshold_rel=0.1,
+        threshold_abs=0.1,
+        num_peaks=max_keypoints,
     )
+
     return keypoints[::, ::-1].tolist()  # convert to (u,v) aka (col,row) coord frame from (row,col)
 
 
