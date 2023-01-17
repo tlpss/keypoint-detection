@@ -39,4 +39,5 @@ DEFAULT_HPARAMS = {
     "kernel_size": 3,
     "dilation": 1,
     "random-arg-to-test": "random",
+    "max_keypoints": 20,
 }

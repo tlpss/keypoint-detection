@@ -1,12 +1,11 @@
 import copy
 import random
 import unittest
+from test.configuration import DEFAULT_HPARAMS, TEST_PARAMS
 
 import torch
 
 from keypoint_detection.data.datamodule import KeypointsDataModule
-
-from .configuration import DEFAULT_HPARAMS, TEST_PARAMS
 
 
 class TestDataModule(unittest.TestCase):
@@ -53,6 +52,8 @@ class TestDataModule(unittest.TestCase):
 
     def test_augmentations_result_in_different_image(self):
         random.seed(2022)
+        torch.manual_seed(2022)
+
         hparams = copy.deepcopy(DEFAULT_HPARAMS)
         module = KeypointsDataModule(**hparams)
         train_dataloader = module.train_dataloader()
@@ -65,7 +66,14 @@ class TestDataModule(unittest.TestCase):
         module = KeypointsDataModule(**hparams)
         train_dataloader = module.train_dataloader()
 
-        batch = next(iter(train_dataloader))
-        transformed_img, _ = batch
-        # check both images are not equal.
-        self.assertTrue(torch.linalg.norm(img - transformed_img))
+        dissimilar_batches = 0
+        # iterate over a few batches
+        # bc none of the augmentations is applied with 100% probability
+        # and finding a seed that triggers them could change if you change the augmentations
+        for _ in range(5):
+            batch = next(iter(train_dataloader))
+            transformed_img, _ = batch
+            # check both images are not equal.
+            dissimilar_batches += 1 * (torch.linalg.norm(img - transformed_img) != 0.0)
+
+        self.assertTrue(dissimilar_batches > 0)
