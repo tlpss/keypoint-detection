@@ -64,7 +64,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
     model.half()
     half_input = sample_model_input.half()
-    half_torchscript_model = model.to_torchscript()
+    half_torchscript_model = model.to_torchscript(method="trace", example_inputs=half_input)
 
     benchmark(
         lambda: half_torchscript_model(half_input), "torchscript model forward pass with half precision", profile=True
