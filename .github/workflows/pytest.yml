@@ -10,27 +10,16 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v2
-      - name: Cache conda
-        uses: actions/cache@v2
-        env:
-          # Increase this value to reset cache if etc/example-environment.yml has not changed
-          CACHE_NUMBER: 1
+      - name: install conda env with micromamba
+        uses: mamba-org/provision-with-micromamba@main
         with:
-          path: ~/conda_pkgs_dir
-          key:
-            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('environment.yaml') }}
-      - uses: conda-incubator/setup-miniconda@v2
-        with:
-          activate-environment: keypoint-detection # name of env
           channel-priority: strict
-          auto-activate-base: false
           environment-file: environment.yaml
-          use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+          cache-env: true
       - name: Conda list
         shell: bash -l {0}
-
         run: conda list
       - name: pytest
         shell: bash -l {0}
         run: |
-          pytest .
+          pytest test/

@@ -58,7 +58,8 @@ A minimal sweep example  is given in `test/configuration.py`. The same content s
 To create your own configuration: run `python train.py -h` to see all parameter options and their documentation.
 
 ## Using a trained model (Inference)
-During training Pytorch Lightning will have saved checkpoints. See `scripts/inference.py` for a simple example to run inference with a checkpoint.
+During training Pytorch Lightning will have saved checkpoints. See `scripts/checkpoint_inference.py` for a simple example to run inference with a checkpoint.
+For benchmarking the inference (or training), see `scripts/benchmark.py`.
 
 ## Development  info
 - formatting and linting is done using [pre-commit](https://pre-commit.com/)
