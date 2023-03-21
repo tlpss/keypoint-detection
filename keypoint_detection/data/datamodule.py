@@ -13,7 +13,9 @@ from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
 
 class KeypointsDataModule(pl.LightningDataModule):
     @staticmethod
-    def add_argparse_args(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    def add_argparse_args(
+        parent_parser: argparse.ArgumentParser,
+    ) -> argparse.ArgumentParser:
         """
         add named arguments from the init function to the parser
         """
@@ -40,7 +42,15 @@ class KeypointsDataModule(pl.LightningDataModule):
                 If not specified, no test set evaluation will be performed at the end of training.",
         )
 
-        parser.add_argument("--augment_train", dest="augment_train", default=False, action="store_true")
+        parser.add_argument(
+            "--augment_train", dest="augment_train", default=False, action="store_true"
+        )
+        parser.add_argument(
+            "--image_size",
+            type=str,
+            help="String containing an image size H<space>W. \
+                The input data will be resized to this dimension before passing through the model.",
+        )
         parent_parser = COCOKeypointsDataset.add_argparse_args(parent_parser)
 
         return parent_parser
@@ -55,46 +65,80 @@ class KeypointsDataModule(pl.LightningDataModule):
         json_validation_dataset_path: str = None,
         json_test_dataset_path=None,
         augment_train: bool = False,
+        image_size: str = "",
         **kwargs
     ):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.augment_train = augment_train
-        self.train_dataset = COCOKeypointsDataset(json_dataset_path, keypoint_channel_configuration, **kwargs)
+
+        resize_tf = None
+        if image_size is not None:
+            sizes = image_size.split(" ")
+            resize_tf = MultiChannelKeypointsCompose(
+                [
+                    A.Resize(int(sizes[0]), int(sizes[1])),
+                ]
+            )
+
+        train_transform = None
+        if augment_train:
+            img_size = self.train_dataset[0][0].shape[1]  # assume rectangular!
+            augmentations = [
+                A.ColorJitter(),
+                A.RandomRotate90(),
+                A.HorizontalFlip(),
+                A.RandomResizedCrop(
+                    img_size, img_size, scale=(0.8, 1.0), ratio=(0.95, 1.0)
+                ),
+            ]
+
+            if image_size is not None:
+                augmentations.append(A.Resize(int(sizes[0]), int(sizes[1])))
+
+            train_transform = MultiChannelKeypointsCompose(augmentations)
+
+        self.train_dataset = COCOKeypointsDataset(
+            json_dataset_path,
+            keypoint_channel_configuration,
+            transform=train_transform,
+            **kwargs
+        )
 
         self.validation_dataset = None
         self.test_dataset = None
 
         if json_validation_dataset_path:
             self.validation_dataset = COCOKeypointsDataset(
-                json_validation_dataset_path, keypoint_channel_configuration, **kwargs
+                json_validation_dataset_path,
+                keypoint_channel_configuration,
+                transform=resize_tf,
+                **kwargs
             )
         else:
-            self.train_dataset, self.validation_dataset = KeypointsDataModule._split_dataset(
+            (
+                self.train_dataset,
+                self.validation_dataset,
+            ) = KeypointsDataModule._split_dataset(
                 self.train_dataset, validation_split_ratio
             )
 
         if json_test_dataset_path:
-            self.test_dataset = COCOKeypointsDataset(json_test_dataset_path, keypoint_channel_configuration, **kwargs)
-
-        if augment_train:
-            img_size = self.train_dataset[0][0].shape[1]  # assume rectangular!
-            train_transform = MultiChannelKeypointsCompose(
-                [
-                    A.ColorJitter(),
-                    A.RandomRotate90(),
-                    A.HorizontalFlip(),
-                    A.RandomResizedCrop(img_size, img_size, scale=(0.8, 1.0), ratio=(0.95, 1.0)),
-                ]
+            self.test_dataset = COCOKeypointsDataset(
+                json_test_dataset_path,
+                keypoint_channel_configuration,
+                transform=resize_tf,
+                **kwargs
             )
-            self.train_dataset.transform = train_transform
 
     @staticmethod
     def _split_dataset(dataset, validation_split_ratio):
         validation_size = int(validation_split_ratio * len(dataset))
         train_size = len(dataset) - validation_size
-        train_dataset, validation_dataset = torch.utils.data.random_split(dataset, [train_size, validation_size])
+        train_dataset, validation_dataset = torch.utils.data.random_split(
+            dataset, [train_size, validation_size]
+        )
         return train_dataset, validation_dataset
 
     def train_dataloader(self):
