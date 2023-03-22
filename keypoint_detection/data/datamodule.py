@@ -82,7 +82,12 @@ class KeypointsDataModule(pl.LightningDataModule):
                 ]
             )
 
-        train_transform = None
+        self.train_dataset = COCOKeypointsDataset(
+            json_dataset_path,
+            keypoint_channel_configuration,
+            **kwargs
+        )
+        
         if augment_train:
             img_size = self.train_dataset[0][0].shape[1]  # assume rectangular!
             augmentations = [
@@ -97,14 +102,9 @@ class KeypointsDataModule(pl.LightningDataModule):
             if image_size is not None:
                 augmentations.append(A.Resize(int(sizes[0]), int(sizes[1])))
 
-            train_transform = MultiChannelKeypointsCompose(augmentations)
+            resize_tf = MultiChannelKeypointsCompose(augmentations)
 
-        self.train_dataset = COCOKeypointsDataset(
-            json_dataset_path,
-            keypoint_channel_configuration,
-            transform=train_transform,
-            **kwargs
-        )
+        self.train_dataset.transform = resize_tf
 
         self.validation_dataset = None
         self.test_dataset = None
