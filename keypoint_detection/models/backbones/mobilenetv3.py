@@ -4,57 +4,11 @@ import timm
 import torch
 import torch.nn as nn
 
+from keypoint_detection.models.backbones.convnext_unet import UpSamplingBlock
 from keypoint_detection.models.backbones.base_backbone import Backbone
 
 from functools import reduce
 from operator import __add__
-
-
-class UpSamplingBlock(nn.Module):
-    """
-    A very basic Upsampling block (these params have to be learnt from scratch so keep them small)
-
-    First it reduces the number of channels of the incoming layer to the amount of the skip connection with a 1x1 conv
-    then it concatenates them and combines them in a new conv layer.
-
-
-
-    x --> up ---> conv1 --> concat --> conv2 --> norm -> relu
-                  ^
-                  |
-                  skip_x
-    """
-
-    def __init__(self, n_channels_in, n_skip_channels_in, n_channels_out, kernel_size):
-        super().__init__()
-        self.upsample = nn.UpsamplingBilinear2d(scale_factor=2)
-        self.conv_reduce = nn.Conv2d(
-            in_channels=n_channels_in,
-            out_channels=n_skip_channels_in,
-            kernel_size=1,
-            bias=False,
-            padding="same",
-        )
-        self.conv = nn.Conv2d(
-            in_channels=n_skip_channels_in * 2,
-            out_channels=n_channels_out,
-            kernel_size=kernel_size,
-            bias=False,
-            padding="same",
-        )
-        self.norm = nn.BatchNorm2d(n_channels_out)
-        self.relu = nn.ReLU()
-
-    def forward(self, x, x_skip):
-        x = self.upsample(x)
-        x = self.conv_reduce(x)
-        x = torch.cat([x, x_skip], dim=1)
-        x = self.conv(x)
-        x = self.norm(x)
-        x = self.relu(x)
-
-        return x
-
 
 class MobileNetV3(Backbone):
     """
