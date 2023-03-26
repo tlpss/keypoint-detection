@@ -1,0 +1,4 @@
+name: resnet40
+pretrained: False
+channels: 1
+s: 20

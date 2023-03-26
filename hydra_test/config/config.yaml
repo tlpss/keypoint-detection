@@ -1,0 +1,8 @@
+dataset: ???
+
+defaults:
+  - model:
+  - dataset:
+  - _self_
+
+wandb_project: "test-hydra"
