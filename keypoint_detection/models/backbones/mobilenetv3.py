@@ -4,11 +4,9 @@ import timm
 import torch
 import torch.nn as nn
 
-from keypoint_detection.models.backbones.convnext_unet import UpSamplingBlock
 from keypoint_detection.models.backbones.base_backbone import Backbone
+from keypoint_detection.models.backbones.convnext_unet import UpSamplingBlock
 
-from functools import reduce
-from operator import __add__
 
 class MobileNetV3(Backbone):
     """
@@ -17,9 +15,7 @@ class MobileNetV3(Backbone):
 
     def __init__(self, **kwargs):
         super().__init__()
-        self.encoder = timm.create_model(
-            "mobilenetv3_large_100", pretrained=True, features_only=True
-        )
+        self.encoder = timm.create_model("mobilenetv3_large_100", pretrained=True, features_only=True)
         self.decoder_blocks = nn.ModuleList()
         for i in range(1, len(self.encoder.feature_info.info)):
             channels_in, skip_channels_in = (
