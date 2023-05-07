@@ -74,7 +74,7 @@ class KeypointDetector(pl.LightningModule):
             "--max_keypoints",
             default=20,
             type=int,
-            help="the maximum number of keypoints to predict from the generated heatmaps. If set to -1, skimage will look for all peaks in the heatmap, if set to N (N>0) it will return the N most most certain ones.",
+            help="the maximum number of keypoints to predict from the generated heatmaps. If set to -1, we consider all peaks in the heatmap, if set to N (N>0) it will return the N most most certain ones.",
         )
         return parent_parser
 

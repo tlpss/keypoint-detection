@@ -2,7 +2,6 @@ from typing import List, Tuple
 
 import numpy as np
 import torch
-from skimage.feature import peak_local_max
 
 
 def BCE_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -78,35 +77,59 @@ def generate_channel_heatmap(
 
 
 def get_keypoints_from_heatmap(
-    heatmap: torch.Tensor, min_keypoint_pixel_distance: int, max_keypoints: int = 20
+    heatmap: torch.Tensor, min_keypoint_pixel_distance: int, max_keypoints: int = 20, threshold_abs=None, threshold_rel=None
 ) -> List[Tuple[int, int]]:
     """
     Extracts at most 20 keypoints from a heatmap, where each keypoint is defined as being a local maximum within a 2D mask [ -min_pixel_distance, + pixel_distance]^2
-    cf https://scikit-image.org/docs/dev/api/skimage.feature.html#skimage.feature.peak_local_max
-
+    Originally https://scikit-image.org/docs/dev/api/skimage.feature.html#skimage.feature.peak_local_max was used,
+    but a simpler and more efficient algorithm was designed which could keep all data on the GPU. However, the functionality is not 100% the same.
+    This implementation is a simple filter and non-max supression step based on the original Skimage implementation.
+    If both `threshold_abs` and `threshold_rel` are provided, the maximum
+    of the two is chosen as the minimum intensity threshold of peaks.
     Args:
         heatmap : heatmap image
         min_keypoint_pixel_distance : The size of the local mask
         max_keypoints: the amount of keypoints to determine from the heatmap, -1 to return all points. Defaults to 20 to limit computational burder
         for models that predict random keypoints in early stage of training.
-
+        threshold_abs : Minimum intensity of peaks. By default (None), the absolute threshold is the minimum intensity of the image.
+        threshold_rel : Minimum intensity of peaks, calculated as ``max(image) * threshold_rel``.
     Returns:
-        A list of 2D keypoints
+        A tensor of 2D keypoints
     """
+    # Set the correct threshold
+    threshold = threshold_abs if threshold_abs is not None else heatmap.min()
+    if threshold_rel is not None:
+        threshold = max(threshold, threshold_rel * heatmap.max())
 
-    np_heatmap = heatmap.cpu().numpy().astype(np.float32)
+    output_points = torch.empty((0, 2), dtype=float, device=heatmap.device)
+    nms_range_squared = min_keypoint_pixel_distance ** 2
 
-    # num_peaks and rel_threshold are set to limit computational burden when models do random predictions.
-    max_keypoints = max_keypoints if max_keypoints > 0 else np.inf
-    keypoints = peak_local_max(
-        np_heatmap,
-        min_distance=min_keypoint_pixel_distance,
-        threshold_rel=0.1,
-        threshold_abs=0.1,
-        num_peaks=max_keypoints,
-    )
+    kpt_candidates_x, kpt_candidates_y = torch.where(heatmap > threshold)
+    kpt_candidates = torch.vstack((kpt_candidates_x, kpt_candidates_y)).T
+    kpt_candidates_scores = heatmap[heatmap > threshold]
+    order = torch.argsort(kpt_candidates_scores, descending=True)
+    kpt_candidates = kpt_candidates[order]
 
-    return keypoints[::, ::-1].tolist()  # convert to (u,v) aka (col,row) coord frame from (row,col)
+    # From highest to lowest score
+    while kpt_candidates.shape[0] > 0:
+        # Add the current keypoint and remove those within the NMS range until none are left
+        kpt = kpt_candidates[0]
+        output_points = torch.vstack((output_points, kpt))
+
+        distances = torch.pow(kpt_candidates - kpt, 2).sum(dim=1)
+
+        # Identify points outside of NMS range and keep them
+        keypoints_outside_nms_mask = distances > nms_range_squared
+        kpt_candidates = kpt_candidates[keypoints_outside_nms_mask]
+    
+    # Make sure the points are ordered X, Y
+    output_points = output_points.permute(1, 0)
+
+    if max_keypoints > 0:
+        # The keypoints are added in decreasing score so we can just take the top k
+        output_points = output_points[:max_keypoints]
+
+    return output_points
 
 
 def compute_keypoint_probability(heatmap: torch.Tensor, detected_keypoints: List[Tuple[int, int]]) -> List[float]:
