@@ -50,7 +50,7 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     # you can uncomment the following lines to make training more reproducible
     # but the impact is limited in my experience.
     # see https://pytorch.org/docs/stable/notes/randomness.html#reproducibility
-    # import torch 
+    # import torch
     # torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = False
 

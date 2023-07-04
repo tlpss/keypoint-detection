@@ -106,7 +106,7 @@ class KeypointsDataModule(pl.LightningDataModule):
         return train_dataset, validation_dataset
 
     def train_dataloader(self):
-        # usually need to seed workers for reproducibility 
+        # usually need to seed workers for reproducibility
         # cf. https://pytorch.org/docs/stable/notes/randomness.html
         # but PL does for us in their seeding function:
         # https://lightning.ai/docs/pytorch/stable/common/trainer.html#reproducibility
@@ -117,12 +117,12 @@ class KeypointsDataModule(pl.LightningDataModule):
             shuffle=True,
             num_workers=self.num_workers,
             collate_fn=COCOKeypointsDataset.collate_fn,
-            pin_memory=True, # usually a little faster
+            pin_memory=True,  # usually a little faster
         )
         return dataloader
 
     def val_dataloader(self):
-        # usually need to seed workers for reproducibility 
+        # usually need to seed workers for reproducibility
         # cf. https://pytorch.org/docs/stable/notes/randomness.html
         # but PL does for us in their seeding function:
         # https://lightning.ai/docs/pytorch/stable/common/trainer.html#reproducibility
