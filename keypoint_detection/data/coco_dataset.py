@@ -56,7 +56,7 @@ class COCOKeypointsDataset(ImageDataset):
         detect_non_visible_keypoints: bool = True,
         transform: A.Compose = None,
         imageloader: ImageLoader = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(imageloader)
 
@@ -88,9 +88,11 @@ class COCOKeypointsDataset(ImageDataset):
 
         image_path = self.dataset_dir_path / self.dataset[index][0]
         image = self.image_loader.get_image(str(image_path), index)
+        # remove a-channel if needed
+        if image.shape[2] == 4:
+            image = image[..., :3]
 
         keypoints = self.dataset[index][1]
-
         if self.transform:
             transformed = self.transform(image=image, keypoints=keypoints)
             image, keypoints = transformed["image"], transformed["keypoints"]
