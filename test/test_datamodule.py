@@ -4,6 +4,7 @@ import unittest
 from test.configuration import DEFAULT_HPARAMS, TEST_PARAMS
 
 import torch
+import torch.utils.data
 
 from keypoint_detection.data.datamodule import KeypointsDataModule
 
@@ -51,29 +52,37 @@ class TestDataModule(unittest.TestCase):
         self.assertIsInstance(ch2[0], torch.Tensor)
 
     def test_augmentations_result_in_different_image(self):
+        # get the dataset through the datamodule
+        # cannot use dataloader directly bc it shuffles the dataset.
         random.seed(2022)
         torch.manual_seed(2022)
 
         hparams = copy.deepcopy(DEFAULT_HPARAMS)
+        hparams["augment_train"] = False
+
         module = KeypointsDataModule(**hparams)
-        train_dataloader = module.train_dataloader()
+        no_aug_train_dataloader = module.train_dataloader()
+        no_aug_dataset = no_aug_train_dataloader.dataset
 
-        batch = next(iter(train_dataloader))
-        img, _ = batch
+        img, _ = no_aug_dataset[0]
 
-        hparams = copy.deepcopy(DEFAULT_HPARAMS)
+        # reset seeds to obtain the same dataset order
+        # and get the dataset again but now with augmentations
+        random.seed(2022)
+        torch.manual_seed(2022)
+        hparams = copy.deepcopy(hparams)
         hparams["augment_train"] = True
-        module = KeypointsDataModule(**hparams)
-        train_dataloader = module.train_dataloader()
+        aug_module = KeypointsDataModule(**hparams)
+        aug_train_dataloader = aug_module.train_dataloader()
+        aug_dataset = aug_train_dataloader.dataset
 
-        dissimilar_batches = 0
-        # iterate over a few batches
-        # bc none of the augmentations is applied with 100% probability
+        dissimilar_images = 0
+        # iterate a few times over the dataset to check that the augmentations are applied
+        # bc none of the augmentations is applied with 100% probability so some batches could be equal
         # and finding a seed that triggers them could change if you change the augmentations
         for _ in range(5):
-            batch = next(iter(train_dataloader))
-            transformed_img, _ = batch
+            transformed_img, _ = aug_dataset[0]
             # check both images are not equal.
-            dissimilar_batches += 1 * (torch.linalg.norm(img - transformed_img) != 0.0)
+            dissimilar_images += 1 * (torch.linalg.norm(img - transformed_img) != 0.0)
 
-        self.assertTrue(dissimilar_batches > 0)
+        self.assertTrue(dissimilar_images > 0)

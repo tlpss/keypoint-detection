@@ -5,7 +5,7 @@ import albumentations as A
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 
 from keypoint_detection.data.augmentations import MultiChannelKeypointsCompose
 from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
@@ -61,6 +61,7 @@ class KeypointsDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.augment_train = augment_train
+
         self.train_dataset = COCOKeypointsDataset(json_dataset_path, keypoint_channel_configuration, **kwargs)
 
         self.validation_dataset = None
@@ -78,17 +79,24 @@ class KeypointsDataModule(pl.LightningDataModule):
         if json_test_dataset_path:
             self.test_dataset = COCOKeypointsDataset(json_test_dataset_path, keypoint_channel_configuration, **kwargs)
 
+        # create the transforms if needed and set them to the datasets
         if augment_train:
-            img_size = self.train_dataset[0][0].shape[1]  # assume rectangular!
+            img_width, img_height = self.train_dataset[0][0].shape[1], self.train_dataset[0][0].shape[2]
             train_transform = MultiChannelKeypointsCompose(
                 [
                     A.ColorJitter(),
                     A.RandomRotate90(),
                     A.HorizontalFlip(),
-                    A.RandomResizedCrop(img_size, img_size, scale=(0.8, 1.0), ratio=(0.95, 1.0)),
+                    A.RandomResizedCrop(img_height, img_width, scale=(0.8, 1.0), ratio=(0.95, 1.0)),
                 ]
             )
-            self.train_dataset.transform = train_transform
+            if isinstance(self.train_dataset, COCOKeypointsDataset):
+                self.train_dataset.transform = train_transform
+            elif isinstance(self.train_dataset, Subset):
+                # if the train dataset is a subset, we need to set the transform to the underlying dataset
+                # otherwise the transform will not be applied..
+                assert isinstance(self.train_dataset.dataset, COCOKeypointsDataset)
+                self.train_dataset.dataset.transform = train_transform
 
     @staticmethod
     def _split_dataset(dataset, validation_split_ratio):
