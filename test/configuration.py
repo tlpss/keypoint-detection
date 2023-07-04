@@ -11,7 +11,7 @@ TEST_PARAMS = {
 
 DEFAULT_HPARAMS = {
     "keypoint_channel_configuration": [["box_corner0", "box_corner1", "box_corner2", "box_corner3"], ["flap_corner0"]],
-    "detect_non_visible_keypoints": True,
+    "detect_only_visible_keypoints": False,
     "seed": 102,
     "wandb_project": "test_project",
     "wandb_entity": "box-manipulation",

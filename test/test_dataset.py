@@ -41,7 +41,8 @@ class TestDataSet(unittest.TestCase):
         self.assertEqual(len(ch2), len(DEFAULT_HPARAMS["keypoint_channel_configuration"][1]))
 
     def test_non_visible_dataset(self):
-        self.hparams.update({"detect_non_visible_keypoints": False})
+        self.hparams["json_dataset_path"] = Path(__file__).parent / "test_dataset" / "duplicate_coco_dataset.json"
+        self.hparams.update({"detect_only_visible_keypoints": True})
         dataset = COCOKeypointsDataset(**self.hparams)
 
         # has duplicates but they are not visible (flag=1)
