@@ -45,7 +45,14 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     Initializes the datamodule, model and trainer based on the global hyperparameters.
     calls trainer.fit(model, module) afterwards and returns both model and trainer.
     """
+    # seed all random number generators on all processes and workers for reproducibility
     pl.seed_everything(hparams["seed"], workers=True)
+    # you can uncomment the following lines to make training more reproducible
+    # but the impact is limited in my experience.
+    # see https://pytorch.org/docs/stable/notes/randomness.html#reproducibility
+    # import torch 
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
 
     backbone = BackboneFactory.create_backbone(**hparams)
     model = KeypointDetector(backbone=backbone, **hparams)

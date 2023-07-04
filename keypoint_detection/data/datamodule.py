@@ -106,33 +106,32 @@ class KeypointsDataModule(pl.LightningDataModule):
         return train_dataset, validation_dataset
 
     def train_dataloader(self):
+        # usually need to seed workers for reproducibility 
+        # cf. https://pytorch.org/docs/stable/notes/randomness.html
+        # but PL does for us in their seeding function:
+        # https://lightning.ai/docs/pytorch/stable/common/trainer.html#reproducibility
+
         dataloader = DataLoader(
             self.train_dataset,
             self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
             collate_fn=COCOKeypointsDataset.collate_fn,
-            pin_memory=True,
+            pin_memory=True, # usually a little faster
         )
         return dataloader
 
     def val_dataloader(self):
-        def seed_worker(worker_id):
-            worker_seed = torch.initial_seed() % 2**32
-            np.random.seed(worker_seed)
-            random.seed(worker_seed)
-
-        g = torch.Generator()
-        g.manual_seed(0)
-        # num workers to zero to avoid non-reproducibility bc of random seeds for workers
+        # usually need to seed workers for reproducibility 
         # cf. https://pytorch.org/docs/stable/notes/randomness.html
+        # but PL does for us in their seeding function:
+        # https://lightning.ai/docs/pytorch/stable/common/trainer.html#reproducibility
+
         dataloader = DataLoader(
             self.validation_dataset,
             self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            worker_init_fn=seed_worker,
-            generator=g,
             collate_fn=COCOKeypointsDataset.collate_fn,
         )
         return dataloader
@@ -146,3 +145,9 @@ class KeypointsDataModule(pl.LightningDataModule):
             collate_fn=COCOKeypointsDataset.collate_fn,
         )
         return dataloader
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
