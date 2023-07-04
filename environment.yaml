@@ -1,11 +1,12 @@
 name: keypoint-detection # to update an existing environment: conda env update -n <current_name> --file <path-to-this-file>
 channels:
   - pytorch
+  - nvidia
   - conda-forge
 dependencies:
-  - cudatoolkit=11.3
   - python=3.9
-  - pytorch
+  - pytorch=1.13
+  - pytorch-cuda=11.7
   - torchvision
   - pip
   - pip:
