@@ -1,5 +1,5 @@
 import inspect
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl
 import torch
@@ -86,3 +86,10 @@ def create_pl_trainer(hparams: dict, wandb_logger: WandbLogger) -> Trainer:
 
     trainer = pl.Trainer(**trainer_kwargs, callbacks=[early_stopping, checkpoint_callback])
     return trainer
+
+
+def parse_channel_configuration(channel_configuration: str) -> List[List[str]]:
+    assert isinstance(channel_configuration, str)
+    channels = channel_configuration.split(";")
+    channels = [[category.strip() for category in channel.split("=")] for channel in channels]
+    return channels

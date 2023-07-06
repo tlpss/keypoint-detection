@@ -24,5 +24,6 @@ setup(
         # for labeling package, should be moved in time to separate setup.py
         "xmltodict",
         "pydantic",
+        "fiftyone",
     ],
 )

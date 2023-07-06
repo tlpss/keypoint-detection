@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from typing import List, Tuple
+from typing import Tuple
 
 import pytorch_lightning as pl
 import wandb
@@ -9,7 +9,7 @@ from pytorch_lightning.trainer.trainer import Trainer
 from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
-from keypoint_detection.train.utils import create_pl_trainer
+from keypoint_detection.train.utils import create_pl_trainer, parse_channel_configuration
 from keypoint_detection.utils.path import get_wandb_log_dir_path
 
 
@@ -70,13 +70,6 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
         trainer.test(model, data_module)
 
     return model, trainer
-
-
-def parse_channel_configuration(channel_configuration: str) -> List[List[str]]:
-    assert isinstance(channel_configuration, str)
-    channels = channel_configuration.split(";")
-    channels = [[category.strip() for category in channel.split("=")] for channel in channels]
-    return channels
 
 
 if __name__ == "__main__":
