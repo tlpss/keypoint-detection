@@ -56,7 +56,7 @@ def visualize_predictions(
     fo_dataset = fo.Dataset.from_dir(
         dataset_type=fo.types.COCODetectionDataset,
         data_path=os.path.dirname(dataset_path),
-        label_types=None,
+        label_types=[],  # do not load the coco annotations
         labels_path=dataset_path,
     )
 
@@ -117,7 +117,7 @@ def _add_instance_keypoints_to_fo_sample(
 if __name__ == "__main__":
     checkpoint_dict = {
         "pyflex": "tlips/synthetic-cloth-keypoints/model-oz195ppw:v2",
-        # "real-data": "tlips/synthetic-cloth-keypoints/model-0l8jfuk6:v5"
+        "real-data": "tlips/synthetic-cloth-keypoints/model-0l8jfuk6:v5",
     }
 
     dataset_path = "/home/tlips/Code/RTFClothes/512x256/towels-test_resized_512x256/towels-test.json"
