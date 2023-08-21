@@ -24,7 +24,8 @@ class UpSamplingBlock(nn.Module):
 
     def __init__(self, n_channels_in, n_skip_channels_in, n_channels_out, kernel_size):
         super().__init__()
-        self.upsample = nn.UpsamplingBilinear2d(scale_factor=2)
+        # bilinear is not deterministic, use nearest neighbor instead
+        self.upsample = lambda x: nn.functional.interpolate(x, scale_factor=2)
         self.conv_reduce = nn.Conv2d(
             in_channels=n_channels_in, out_channels=n_skip_channels_in, kernel_size=1, bias=False, padding="same"
         )
@@ -61,7 +62,7 @@ class ConvNeXtUnet(Backbone):
 
 
                                         (head)
-    stem                              final_up (bilinear 4x)
+    stem                              final_up ( 4x)
         res1         --->   1/4      decode3
             res2     --->   1/8    decode2
                 res3 --->   1/16  decode1
@@ -82,9 +83,7 @@ class ConvNeXtUnet(Backbone):
             block = UpSamplingBlock(channels_in, skip_channels_in, skip_channels_in, 3)
             self.decoder_blocks.append(block)
 
-        self.final_upsampling_block = nn.Sequential(
-            nn.UpsamplingBilinear2d(scale_factor=4), nn.Conv2d(skip_channels_in, skip_channels_in, 3, padding="same")
-        )
+        self.final_conv = nn.Conv2d(skip_channels_in, skip_channels_in, 3, padding="same")
 
     def forward(self, x):
         features = self.encoder(x)
@@ -92,7 +91,8 @@ class ConvNeXtUnet(Backbone):
         x = features.pop()
         for block in self.decoder_blocks:
             x = block(x, features.pop())
-        x = self.final_upsampling_block(x)
+        x = nn.functional.interpolate(x, scale_factor=4)
+        x = self.final_conv(x)
         return x
 
     def get_n_channels_out(self):

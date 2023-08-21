@@ -55,9 +55,8 @@ class MaxVitUnet(Backbone):
             block = UpSamplingBlock(config_in["channels"], config_skip["channels"], config_skip["channels"], 3)
             self.decoder_blocks.append(block)
 
-        self.final_upsampling_block = nn.Sequential(
-            nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.Conv2d(self.feature_config[0]["channels"], self.feature_config[0]["channels"], 3, padding="same"),
+        self.final_conv = nn.Conv2d(
+            self.feature_config[0]["channels"], self.feature_config[0]["channels"], 3, padding="same"
         )
 
     def forward(self, x):
@@ -65,7 +64,8 @@ class MaxVitUnet(Backbone):
         x = features.pop(-1)
         for block in self.decoder_blocks[::-1]:
             x = block(x, features.pop(-1))
-        x = self.final_upsampling_block(x)
+        x = nn.functional.interpolate(x, scale_factor=2)
+        x = self.final_conv(x)
         return x
 
     def get_n_channels_out(self):

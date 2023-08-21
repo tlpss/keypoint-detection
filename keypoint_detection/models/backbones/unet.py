@@ -43,7 +43,6 @@ class MaxPoolDownSamplingBlock(nn.Module):
 class UpSamplingBlock(nn.Module):
     def __init__(self, n_channels_in, n_channels_out, kernel_size):
         super().__init__()
-        self.upsample = nn.UpsamplingBilinear2d(scale_factor=2)
         self.conv = nn.Conv2d(
             in_channels=n_channels_in * 2,
             out_channels=n_channels_out,
@@ -55,7 +54,7 @@ class UpSamplingBlock(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x, x_skip):
-        x = self.upsample(x)
+        x = nn.functional.interpolate(x, scale_factor=2)
         x = torch.cat([x, x_skip], dim=1)
         x = self.conv(x)
         x = self.relu(x)
