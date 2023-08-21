@@ -37,6 +37,18 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
         type=float,
         help="relative threshold for early stopping callback. If validation epoch loss does not increase with at least this fraction compared to the best result so far for 5 consecutive epochs, training is stopped.",
     )
+    # deterministic argument for PL trainer, not exposed in their CLI.
+    # https://lightning.ai/docs/pytorch/stable/common/trainer.html#reproducibility
+    # set to True by default, but can be set to False to speed up training.
+
+    parser.add_argument(
+        "--non-deterministic-pytorch",
+        action="store_false",
+        dest="deterministic",
+        help="do not use deterministic algorithms for pytorch. This can speed up training, but will make it non-reproducible.",
+    )
+
+    parser.set_defaults(deterministic=True)
     return parent_parser
 
 
@@ -47,12 +59,23 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     """
     # seed all random number generators on all processes and workers for reproducibility
     pl.seed_everything(hparams["seed"], workers=True)
-    # you can uncomment the following lines to make training more reproducible
+
+    # use deterministic algorithms for torch to ensure exact reproducibility
+    # https://pytorch.org/docs/stable/notes/randomness.html#reproducibility
+    # this can slow down training
     # but the impact is limited in my experience.
-    # see https://pytorch.org/docs/stable/notes/randomness.html#reproducibility
-    # import torch
+    # so I prefer to be deterministic (and hence reproducible) by default.
+
+    # also note that following is not enough:
     # torch.backends.cudnn.deterministic = True
-    # torch.backends.cudnn.benchmark = False
+    # there are other non-deterministic algorithms
+    # cf list at https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html#torch.use_deterministic_algorithms
+
+    # the following is still not good enough with Pytorch-Lightning:
+    # import torch
+    # torch.use_deterministic_algorithms(True)
+    # though I am not exactly sure why.
+    # so we have to set it in the trainer! (see create_pl_trainer)
 
     backbone = BackboneFactory.create_backbone(**hparams)
     model = KeypointDetector(backbone=backbone, **hparams)

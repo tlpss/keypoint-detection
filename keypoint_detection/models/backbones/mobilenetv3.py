@@ -25,10 +25,7 @@ class MobileNetV3(Backbone):
             block = UpSamplingBlock(channels_in, skip_channels_in, skip_channels_in, 3)
             self.decoder_blocks.append(block)
 
-        self.final_upsampling_block = nn.Sequential(
-            nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.Conv2d(skip_channels_in, skip_channels_in, 3, padding="same"),
-        )
+        self.final_conv = nn.Conv2d(skip_channels_in, skip_channels_in, 3, padding="same")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         features = self.encoder(x)
@@ -36,7 +33,8 @@ class MobileNetV3(Backbone):
         x = features.pop()
         for block in self.decoder_blocks:
             x = block(x, features.pop())
-        x = self.final_upsampling_block(x)
+        x = nn.functional.interpolate(x, scale_factor=2)
+        x = self.final_conv(x)
 
         return x
 
