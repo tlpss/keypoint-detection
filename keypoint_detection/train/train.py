@@ -90,7 +90,15 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     trainer.fit(model, data_module)
 
     if "json_test_dataset_path" in hparams:
-        trainer.test(model, data_module)
+        # check if we have a best checkpoint, if not, use the current weights but log a warning
+        # it makes more sense to evaluate on the best checkpoint because, i.e. the best validation score obtained.
+        # evaluating on the current weights is more noisy and would also result in lower evaluation scores if overfitting happens
+        #  when training longer, even with perfect i.i.d. test/val sets. This is not desired.
+
+        ckpt_path = trainer.checkpoint_callback.best_model_path
+        if ckpt_path == "":
+            print("No best checkpoint found, using current weights for test set evaluation")
+        trainer.test(model, data_module, ckpt_path="best")
 
     return model, trainer
 
