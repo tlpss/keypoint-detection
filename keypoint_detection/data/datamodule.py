@@ -55,7 +55,7 @@ class KeypointsDataModule(pl.LightningDataModule):
         json_validation_dataset_path: str = None,
         json_test_dataset_path=None,
         augment_train: bool = False,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self.batch_size = batch_size
@@ -72,6 +72,7 @@ class KeypointsDataModule(pl.LightningDataModule):
                 json_validation_dataset_path, keypoint_channel_configuration, **kwargs
             )
         else:
+            print(f"splitting the train set to create a validation set with ratio {validation_split_ratio} ")
             self.train_dataset, self.validation_dataset = KeypointsDataModule._split_dataset(
                 self.train_dataset, validation_split_ratio
             )
@@ -104,6 +105,8 @@ class KeypointsDataModule(pl.LightningDataModule):
         validation_size = int(validation_split_ratio * len(dataset))
         train_size = len(dataset) - validation_size
         train_dataset, validation_dataset = torch.utils.data.random_split(dataset, [train_size, validation_size])
+        print(f"train size: {len(train_dataset)}")
+        print(f"validation size: {len(validation_dataset)}")
         return train_dataset, validation_dataset
 
     def train_dataloader(self):
