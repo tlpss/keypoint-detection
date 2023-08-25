@@ -84,7 +84,9 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
         save_dir=get_wandb_log_dir_path(),
-        log_model="all",  # log all checkpoints made by PL, see create_trainer for callback
+        log_model=True,  # only log checkpoints at the end of training, i.e. only log the best checkpoint
+        # not suitable for expensive training runs where you might want to restart from checkpoint
+        # but this saves storage and usually keypoint detector training runs are not that expensive anyway
     )
     trainer = create_pl_trainer(hparams, wandb_logger)
     trainer.fit(model, data_module)

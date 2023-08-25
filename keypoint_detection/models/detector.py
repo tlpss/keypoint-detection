@@ -256,6 +256,7 @@ class KeypointDetector(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         log_images = batch_idx == 0 and self.current_epoch > 0
+
         result_dict = self.shared_step(train_batch, batch_idx, include_visualization_data_in_result_dict=log_images)
 
         if log_images:
@@ -321,10 +322,10 @@ class KeypointDetector(pl.LightningModule):
         if self.is_ap_epoch():
             self.update_ap_metrics(result_dict, self.ap_validation_metrics)
 
-        log_images = batch_idx == 0 and self.current_epoch > 0
-        if log_images:
-            image_grids = self.visualize_predictions_channels(result_dict)
-            self.log_image_grids(image_grids, mode="validation")
+            log_images = batch_idx == 0 and self.current_epoch > 0
+            if log_images:
+                image_grids = self.visualize_predictions_channels(result_dict)
+                self.log_image_grids(image_grids, mode="validation")
 
         ## log (defaults to on_epoch, which aggregates the logged values over entire validation set)
         self.log("validation/epoch_loss", result_dict["loss"])
@@ -334,8 +335,10 @@ class KeypointDetector(pl.LightningModule):
         # no need to switch model to eval mode, this is handled by pytorch lightning
         result_dict = self.shared_step(test_batch, batch_idx, include_visualization_data_in_result_dict=True)
         self.update_ap_metrics(result_dict, self.ap_test_metrics)
-        image_grids = self.visualize_predictions_channels(result_dict)
-        self.log_image_grids(image_grids, mode="test")
+        # only log first 10 batches to reduce storage space
+        if batch_idx < 10:
+            image_grids = self.visualize_predictions_channels(result_dict)
+            self.log_image_grids(image_grids, mode="test")
         self.log("test/epoch_loss", result_dict["loss"])
         self.log("test/gt_loss", result_dict["gt_loss"])
 
@@ -405,9 +408,13 @@ class KeypointDetector(pl.LightningModule):
 
     def is_ap_epoch(self) -> bool:
         """Returns True if the AP should be calculated in this epoch."""
-        return (
-            self.ap_epoch_start <= self.current_epoch and self.current_epoch % self.ap_epoch_freq == 0
-        ) or self.current_epoch == self.trainer.max_epochs - 1
+        is_epch = self.ap_epoch_start <= self.current_epoch and self.current_epoch % self.ap_epoch_freq == 0
+        # always log the AP in the last epoch
+        is_epch = is_epch or self.current_epoch == self.trainer.max_epochs - 1
+
+        # if user manually specified a validation frequency, we should always log the AP in that epoch
+        is_epch = is_epch or (self.current_epoch > 0 and self.trainer.check_val_every_n_epoch > 1)
+        return is_epch
 
     def extract_detected_keypoints_from_heatmap(self, heatmap: torch.Tensor) -> List[DetectedKeypoint]:
         """
