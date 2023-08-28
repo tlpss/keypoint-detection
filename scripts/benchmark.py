@@ -39,10 +39,10 @@ if __name__ == "__main__":
 
     device = "cuda:0"
     backbone = "ConvNeXtUnet"
-    input_size = 256
+    input_size = 1024
 
     backbone = BackboneFactory.create_backbone(backbone)
-    model = KeypointDetector(1, "2 4", 3, 3e-4, backbone, [["test"]], 1, 1, 0.0, 20)
+    model = KeypointDetector(1, "2 4", 3, 3e-4, backbone, [["test1"], ["test2,test3"]], 1, 1, 0.0, 20)
     # do not forget to set model to eval mode!
     # this will e.g. use the running statistics for batch norm layers instead of the batch statistics.
     # this is important as inference batches are typically a lot smaller which would create too much noise.

@@ -1,3 +1,4 @@
+import warnings
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -77,12 +78,15 @@ def generate_channel_heatmap(
     return heatmap
 
 
-def get_keypoints_from_heatmap(
+def get_keypoints_from_heatmap_scipy(
     heatmap: torch.Tensor, min_keypoint_pixel_distance: int, max_keypoints: int = 20
 ) -> List[Tuple[int, int]]:
     """
     Extracts at most 20 keypoints from a heatmap, where each keypoint is defined as being a local maximum within a 2D mask [ -min_pixel_distance, + pixel_distance]^2
     cf https://scikit-image.org/docs/dev/api/skimage.feature.html#skimage.feature.peak_local_max
+
+    THIS IS SLOW! use get_keypoints_from_heatmap_batch_maxpool instead.
+
 
     Args:
         heatmap : heatmap image
@@ -93,7 +97,7 @@ def get_keypoints_from_heatmap(
     Returns:
         A list of 2D keypoints
     """
-
+    warnings.warn("get_keypoints_from_heatmap_scipy is slow! Use get_keypoints_from_heatmap_batch_maxpool instead.")
     np_heatmap = heatmap.cpu().numpy().astype(np.float32)
 
     # num_peaks and rel_threshold are set to limit computational burden when models do random predictions.
@@ -115,46 +119,64 @@ def get_keypoints_from_heatmap_batch_maxpool(
     min_keypoint_pixel_distance: int = 1,
     abs_max_threshold: Optional[float] = None,
     rel_max_threshold: Optional[float] = None,
-) -> List[List[Tuple[int, int]]]:
-    batch_size, n_channels, height, width = heatmap.shape
-    threshold = heatmap.min()
-    if abs_max_threshold is not None:
-        threshold = abs_max_threshold
-    if rel_max_threshold is not None:
-        threshold = max(threshold, rel_max_threshold * heatmap.max())
-    heatmap = heatmap * (heatmap > threshold).float()
+) -> List[List[List[Tuple[int, int]]]]:
+    """Fast extraction of keypoints from a batch of heatmaps using maxpooling.
+
+    Args:
+        heatmap (torch.Tensor): NxCxHxW heatmap batch
+        max_keypoints (int, optional): max number of keypoints to extract, lowering will result in faster execution times. Defaults to 20.
+        min_keypoint_pixel_distance (int, optional): _description_. Defaults to 1.
+        abs_max_threshold (Optional[float], optional): _description_. Defaults to None.
+        rel_max_threshold (Optional[float], optional): _description_. Defaults to None.
+
+    Returns:
+        The extracted keypoints for each batch, channel and heatmap; and their scores
+    """
+    batch_size, n_channels, _, width = heatmap.shape
+
+    # obtain max_keypoints local maxima for each channel (w/ maxpool)
 
     kernel = min_keypoint_pixel_distance * 2 + 1
     pad = min_keypoint_pixel_distance
-    # padded_heatmap = torch.nn.functional.pad(heatmap, (pad,pad,pad,pad), mode='constant', value=threshold)
-    hmax = torch.nn.functional.max_pool2d(heatmap, kernel, stride=1, padding=pad)
-    keep = (hmax == heatmap).float()
-    heatmap = heatmap * keep
+    # exclude border keypoints by padding with highest possible value
+    # bc the borders are more susceptible to noise and could result in false positives
+    padded_heatmap = torch.nn.functional.pad(heatmap, (pad, pad, pad, pad), mode="constant", value=1.0)
+    max_pooled_heatmap = torch.nn.functional.max_pool2d(padded_heatmap, kernel, stride=1, padding=0)
+    # if the value equals the original value, it is the local maximum
+    local_maxima = max_pooled_heatmap == heatmap
+    # all values to zero that are not local maxima
+    heatmap = heatmap * local_maxima
 
-    indices = torch.topk(heatmap.view(batch_size, n_channels, -1), max_keypoints, sorted=True)[1]
+    # extract top-k from heatmap (may include non-local maxima if there are less peaks than max_keypoints)
+    scores, indices = torch.topk(heatmap.view(batch_size, n_channels, -1), max_keypoints, sorted=True)
     indices = torch.stack([torch.div(indices, width, rounding_mode="floor"), indices % width], dim=-1)
+    # at this point either score > 0.0, in which case the index is a local maximum
+    # or score is 0.0, in which case topk returned non-maxima, which will be filtered out later.
+    #  NMS
 
-    # remove indices along the border of the heatmap, as the maxpool pads with -Infinity, creating possibly false positives
-    # for each batch, channel, remove indices that are in the border
-    y_mask = torch.logical_and(
-        indices[..., 0] > min_keypoint_pixel_distance, indices[..., 0] < height - min_keypoint_pixel_distance
-    )
-    x_mask = torch.logical_and(
-        indices[..., 1] > min_keypoint_pixel_distance, indices[..., 1] < width - min_keypoint_pixel_distance
-    )
-    mask = torch.logical_and(x_mask, y_mask)
-
-    # TODO: can we do this directly in pytorch??
-
+    #  moving them to CPU now to avoid multiple GPU-mem accesses!
     indices = indices.detach().cpu().numpy()
-    mask = mask.detach().cpu().numpy()
+    scores = scores.detach().cpu().numpy()
     filtered_indices = [[[] for _ in range(n_channels)] for _ in range(batch_size)]
+    filtered_scores = [[[] for _ in range(n_channels)] for _ in range(batch_size)]
+    # determine NMS threshold
+    threshold = 0.01  # make sure it is > 0 to filter out top-k that are not local maxima
+    if abs_max_threshold is not None:
+        threshold = max(threshold, abs_max_threshold)
+    if rel_max_threshold is not None:
+        threshold = max(threshold, rel_max_threshold * heatmap.max())
+
+    # have to do this manually as the number of maxima for each channel can be different
     for batch_idx in range(batch_size):
         for channel_idx in range(n_channels):
-            candidates = indices[batch_idx, channel_idx, mask[batch_idx, channel_idx]]
+            candidates = indices[batch_idx, channel_idx]
             for candidate_idx in range(candidates.shape[0]):
-                if mask[batch_idx, channel_idx, candidate_idx]:
-                    filtered_indices[batch_idx][channel_idx].append(candidates[candidate_idx].tolist())
+
+                # these are filtered out directly.
+                if scores[batch_idx, channel_idx, candidate_idx] > threshold:
+                    # convert to (u,v)
+                    filtered_indices[batch_idx][channel_idx].append(candidates[candidate_idx][::-1].tolist())
+                    filtered_scores[batch_idx][channel_idx].append(scores[batch_idx, channel_idx, candidate_idx])
     return filtered_indices
 
 
@@ -173,36 +195,14 @@ def compute_keypoint_probability(heatmap: torch.Tensor, detected_keypoints: List
 
 
 if __name__ == "__main__":
+    import torch.profiler as profiler
 
-    keypoitns = torch.tensor([[10, 100], [145, 223]]).cuda()
-    heatmap = generate_channel_heatmap((512, 256), keypoitns, 6, "cuda")
-    heatmap = heatmap.unsqueeze(0)
-    heatmap = torch.stack([heatmap, heatmap], dim=0)
+    keypoints = torch.tensor([[150, 134], [64, 153]]).cuda()
+    heatmap = generate_channel_heatmap((1080, 1920), keypoints, 6, "cuda")
+    heatmap = heatmap.unsqueeze(0).unsqueeze(0).repeat(1, 1, 1, 1)
+    # heatmap = torch.stack([heatmap, heatmap], dim=0)
     print(heatmap.shape)
-    print(get_keypoints_from_heatmap_batch_maxpool(heatmap, 10))
-
-    import time
-
-    nb_iters = 100
-
-    def test_method(method, name):
-        torch.cuda.synchronize()
-        t0 = time.time()
-        for i in range(nb_iters):
-            if method == get_keypoints_from_heatmap:
-                method(heatmaps[i][0][0], 10)
-            else:
-                method(heatmaps[i], 10)
-        torch.cuda.synchronize()
-        t1 = time.time()
-        duration = (t1 - t0) / nb_iters * 1000.0
-        print(f"{duration:.3f} ms per iter for {name} method with heatmap size {heatmap_size} ")
-
-    for heatmap_size in [(256, 256), (512, 256), (512, 512), (1920, 1080)]:
-        heatmaps = [
-            generate_channel_heatmap(heatmap_size, torch.randint(0, 255, (1, 1, 10, 2)).cuda(), 6, "cuda")
-            for _ in range(nb_iters)
-        ]
-
-        test_method(get_keypoints_from_heatmap, "scipy")
-        test_method(get_keypoints_from_heatmap_batch_maxpool, "torch")
+    with profiler.profile(record_shapes=True) as prof:
+        with profiler.record_function("get_keypoints_from_heatmap_batch_maxpool"):
+            print(get_keypoints_from_heatmap_batch_maxpool(heatmap, 50, min_keypoint_pixel_distance=5))
+    print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))

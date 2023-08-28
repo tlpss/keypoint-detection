@@ -13,7 +13,7 @@ from keypoint_detection.utils.heatmap import (
     BCE_loss,
     compute_keypoint_probability,
     create_heatmap_batch,
-    get_keypoints_from_heatmap,
+    get_keypoints_from_heatmap_scipy,
 )
 from keypoint_detection.utils.visualization import visualize_predictions
 
@@ -424,7 +424,7 @@ class KeypointDetector(pl.LightningModule):
         heatmap (torch.Tensor) : H x W tensor that represents a heatmap.
         """
 
-        detected_keypoints = get_keypoints_from_heatmap(
+        detected_keypoints = get_keypoints_from_heatmap_scipy(
             heatmap, self.minimal_keypoint_pixel_distance, self.max_keypoints
         )
         keypoint_probabilities = compute_keypoint_probability(heatmap, detected_keypoints)

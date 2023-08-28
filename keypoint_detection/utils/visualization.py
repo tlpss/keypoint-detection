@@ -5,7 +5,7 @@ import torch
 import torchvision
 from matplotlib import cm
 
-from keypoint_detection.utils.heatmap import generate_channel_heatmap, get_keypoints_from_heatmap
+from keypoint_detection.utils.heatmap import generate_channel_heatmap, get_keypoints_from_heatmap_scipy
 
 
 def overlay_image_with_heatmap(images: torch.Tensor, heatmaps: torch.Tensor, alpha=0.5) -> torch.Tensor:
@@ -61,7 +61,7 @@ def visualize_predictions(
     predicted_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], predicted_heatmaps[:num_images])
     gt_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], gt_heatmaps[:num_images])
     predicted_keypoints = [
-        torch.tensor(get_keypoints_from_heatmap(predicted_heatmaps[i].cpu(), minimal_keypoint_pixel_distance))
+        torch.tensor(get_keypoints_from_heatmap_scipy(predicted_heatmaps[i].cpu(), minimal_keypoint_pixel_distance))
         for i in range(predicted_heatmaps.shape[0])
     ]
     predicted_keypoints_overlays = overlay_image_with_keypoints(
