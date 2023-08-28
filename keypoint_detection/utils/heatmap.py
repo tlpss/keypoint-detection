@@ -119,6 +119,7 @@ def get_keypoints_from_heatmap_batch_maxpool(
     min_keypoint_pixel_distance: int = 1,
     abs_max_threshold: Optional[float] = None,
     rel_max_threshold: Optional[float] = None,
+    return_scores: bool = False,
 ) -> List[List[List[Tuple[int, int]]]]:
     """Fast extraction of keypoints from a batch of heatmaps using maxpooling.
 
@@ -132,6 +133,9 @@ def get_keypoints_from_heatmap_batch_maxpool(
     Returns:
         The extracted keypoints for each batch, channel and heatmap; and their scores
     """
+
+    # TODO: ugly that the output can change based on a flag.. should always return scores and discard them when I don't need them...
+
     batch_size, n_channels, _, width = heatmap.shape
 
     # obtain max_keypoints local maxima for each channel (w/ maxpool)
@@ -177,7 +181,10 @@ def get_keypoints_from_heatmap_batch_maxpool(
                     # convert to (u,v)
                     filtered_indices[batch_idx][channel_idx].append(candidates[candidate_idx][::-1].tolist())
                     filtered_scores[batch_idx][channel_idx].append(scores[batch_idx, channel_idx, candidate_idx])
-    return filtered_indices
+    if return_scores:
+        return filtered_indices, filtered_scores
+    else:
+        return filtered_indices
 
 
 def compute_keypoint_probability(heatmap: torch.Tensor, detected_keypoints: List[Tuple[int, int]]) -> List[float]:

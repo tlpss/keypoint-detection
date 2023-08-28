@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     device = "cuda:0"
     backbone = "ConvNeXtUnet"
-    input_size = 1024
+    input_size = 512
 
     backbone = BackboneFactory.create_backbone(backbone)
     model = KeypointDetector(1, "2 4", 3, 3e-4, backbone, [["test1"], ["test2,test3"]], 1, 1, 0.0, 20)
@@ -52,14 +52,14 @@ if __name__ == "__main__":
     sample_model_input = torch.rand(1, 3, input_size, input_size, device=device, dtype=torch.float32)
     sample_inference_input = np.random.randint(0, 255, (input_size, input_size, 3), dtype=np.uint8)
 
-    benchmark(lambda: model(sample_model_input), "plain model forward pass", profile=True)
+    benchmark(lambda: model(sample_model_input), "plain model forward pass", profile=False)
     benchmark(
-        lambda: local_inference(model, sample_inference_input, device=device), "plain model inference", profile=True
+        lambda: local_inference(model, sample_inference_input, device=device), "plain model inference", profile=False
     )
 
     torchscript_model = model.to_torchscript()
     # JIT compiling with torchscript should improve performance (slightly)
-    benchmark(lambda: torchscript_model(sample_model_input), "torchscript model forward pass", profile=True)
+    benchmark(lambda: torchscript_model(sample_model_input), "torchscript model forward pass", profile=False)
 
     torch.backends.cudnn.benchmark = True
     model.half()
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     half_torchscript_model = model.to_torchscript(method="trace", example_inputs=half_input)
 
     benchmark(
-        lambda: half_torchscript_model(half_input), "torchscript model forward pass with half precision", profile=True
+        lambda: half_torchscript_model(half_input), "torchscript model forward pass with half precision", profile=False
     )
 
     # note: from the traces it can be seen that a lot of time is spent in 'overhead', i.e. the GPU is idle...

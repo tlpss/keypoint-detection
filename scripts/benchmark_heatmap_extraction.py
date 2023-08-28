@@ -32,9 +32,12 @@ def test_method(nb_iters, heatmaps, method, name):
 
 if __name__ == "__main__":
     nb_iters = 20
-    n_channels = 1
+    n_channels = 2
     batch_size = 1
     n_keypoints_per_channel = 10
+    print(
+        f"benchmarking with  batch_size: {batch_size}, {n_channels} channels and {n_keypoints_per_channel} keypoints per channel"
+    )
     for heatmap_size in [(256, 256), (512, 256), (512, 512), (1920, 1080)]:
         heatmaps = [
             generate_channel_heatmap(heatmap_size, torch.randint(0, 255, (6, 2)), 6, "cpu")
