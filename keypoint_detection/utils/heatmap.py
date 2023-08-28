@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -109,6 +109,55 @@ def get_keypoints_from_heatmap(
     return keypoints[::, ::-1].tolist()  # convert to (u,v) aka (col,row) coord frame from (row,col)
 
 
+def get_keypoints_from_heatmap_batch_maxpool(
+    heatmap: torch.Tensor,
+    max_keypoints: int = 20,
+    min_keypoint_pixel_distance: int = 1,
+    abs_max_threshold: Optional[float] = None,
+    rel_max_threshold: Optional[float] = None,
+) -> List[List[Tuple[int, int]]]:
+    batch_size, n_channels, height, width = heatmap.shape
+    threshold = heatmap.min()
+    if abs_max_threshold is not None:
+        threshold = abs_max_threshold
+    if rel_max_threshold is not None:
+        threshold = max(threshold, rel_max_threshold * heatmap.max())
+    heatmap = heatmap * (heatmap > threshold).float()
+
+    kernel = min_keypoint_pixel_distance * 2 + 1
+    pad = min_keypoint_pixel_distance
+    # padded_heatmap = torch.nn.functional.pad(heatmap, (pad,pad,pad,pad), mode='constant', value=threshold)
+    hmax = torch.nn.functional.max_pool2d(heatmap, kernel, stride=1, padding=pad)
+    keep = (hmax == heatmap).float()
+    heatmap = heatmap * keep
+
+    indices = torch.topk(heatmap.view(batch_size, n_channels, -1), max_keypoints, sorted=True)[1]
+    indices = torch.stack([torch.div(indices, width, rounding_mode="floor"), indices % width], dim=-1)
+
+    # remove indices along the border of the heatmap, as the maxpool pads with -Infinity, creating possibly false positives
+    # for each batch, channel, remove indices that are in the border
+    y_mask = torch.logical_and(
+        indices[..., 0] > min_keypoint_pixel_distance, indices[..., 0] < height - min_keypoint_pixel_distance
+    )
+    x_mask = torch.logical_and(
+        indices[..., 1] > min_keypoint_pixel_distance, indices[..., 1] < width - min_keypoint_pixel_distance
+    )
+    mask = torch.logical_and(x_mask, y_mask)
+
+    # TODO: can we do this directly in pytorch??
+
+    indices = indices.detach().cpu().numpy()
+    mask = mask.detach().cpu().numpy()
+    filtered_indices = [[[] for _ in range(n_channels)] for _ in range(batch_size)]
+    for batch_idx in range(batch_size):
+        for channel_idx in range(n_channels):
+            candidates = indices[batch_idx, channel_idx, mask[batch_idx, channel_idx]]
+            for candidate_idx in range(candidates.shape[0]):
+                if mask[batch_idx, channel_idx, candidate_idx]:
+                    filtered_indices[batch_idx][channel_idx].append(candidates[candidate_idx].tolist())
+    return filtered_indices
+
+
 def compute_keypoint_probability(heatmap: torch.Tensor, detected_keypoints: List[Tuple[int, int]]) -> List[float]:
     """Compute probability measure for each detected keypoint on the heatmap
 
@@ -121,3 +170,39 @@ def compute_keypoint_probability(heatmap: torch.Tensor, detected_keypoints: List
     """
     # note the order! (u,v) is how we write , but the heatmap has to be indexed (v,u) as it is H x W
     return [heatmap[k[1]][k[0]].item() for k in detected_keypoints]
+
+
+if __name__ == "__main__":
+
+    keypoitns = torch.tensor([[10, 100], [145, 223]]).cuda()
+    heatmap = generate_channel_heatmap((512, 256), keypoitns, 6, "cuda")
+    heatmap = heatmap.unsqueeze(0)
+    heatmap = torch.stack([heatmap, heatmap], dim=0)
+    print(heatmap.shape)
+    print(get_keypoints_from_heatmap_batch_maxpool(heatmap, 10))
+
+    import time
+
+    nb_iters = 100
+
+    def test_method(method, name):
+        torch.cuda.synchronize()
+        t0 = time.time()
+        for i in range(nb_iters):
+            if method == get_keypoints_from_heatmap:
+                method(heatmaps[i][0][0], 10)
+            else:
+                method(heatmaps[i], 10)
+        torch.cuda.synchronize()
+        t1 = time.time()
+        duration = (t1 - t0) / nb_iters * 1000.0
+        print(f"{duration:.3f} ms per iter for {name} method with heatmap size {heatmap_size} ")
+
+    for heatmap_size in [(256, 256), (512, 256), (512, 512), (1920, 1080)]:
+        heatmaps = [
+            generate_channel_heatmap(heatmap_size, torch.randint(0, 255, (1, 1, 10, 2)).cuda(), 6, "cuda")
+            for _ in range(nb_iters)
+        ]
+
+        test_method(get_keypoints_from_heatmap, "scipy")
+        test_method(get_keypoints_from_heatmap_batch_maxpool, "torch")
