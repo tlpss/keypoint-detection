@@ -90,7 +90,7 @@ def get_keypoints_from_heatmap_scipy(
 
     Args:
         heatmap : heatmap image
-        min_keypoint_pixel_distance : The size of the local mask
+        min_keypoint_pixel_distance : The size of the local mask, serves as NMS
         max_keypoints: the amount of keypoints to determine from the heatmap, -1 to return all points. Defaults to 20 to limit computational burder
         for models that predict random keypoints in early stage of training.
 
@@ -123,16 +123,23 @@ def get_keypoints_from_heatmap_batch_maxpool(
 ) -> List[List[List[Tuple[int, int]]]]:
     """Fast extraction of keypoints from a batch of heatmaps using maxpooling.
 
+    Inspired by mmdetection and CenterNet:
+      https://mmdetection.readthedocs.io/en/v2.13.0/_modules/mmdet/models/utils/gaussian_target.html
+
     Args:
         heatmap (torch.Tensor): NxCxHxW heatmap batch
         max_keypoints (int, optional): max number of keypoints to extract, lowering will result in faster execution times. Defaults to 20.
         min_keypoint_pixel_distance (int, optional): _description_. Defaults to 1.
+
+        Following thresholds can be used at inference time to select where you want to be on the AP curve. They should ofc. not be used for training
         abs_max_threshold (Optional[float], optional): _description_. Defaults to None.
         rel_max_threshold (Optional[float], optional): _description_. Defaults to None.
 
     Returns:
         The extracted keypoints for each batch, channel and heatmap; and their scores
     """
+
+    # TODO: maybe separate the thresholding into another function to make sure it is not used during training, where it should not be used?
 
     # TODO: ugly that the output can change based on a flag.. should always return scores and discard them when I don't need them...
 
@@ -156,7 +163,9 @@ def get_keypoints_from_heatmap_batch_maxpool(
     indices = torch.stack([torch.div(indices, width, rounding_mode="floor"), indices % width], dim=-1)
     # at this point either score > 0.0, in which case the index is a local maximum
     # or score is 0.0, in which case topk returned non-maxima, which will be filtered out later.
-    #  NMS
+
+    #  remove top-k that are not local maxima and threshold (if required)
+    # thresholding shouldn't be done during training
 
     #  moving them to CPU now to avoid multiple GPU-mem accesses!
     indices = indices.detach().cpu().numpy()
