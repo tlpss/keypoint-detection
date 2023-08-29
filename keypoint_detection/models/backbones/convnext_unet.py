@@ -24,8 +24,7 @@ class UpSamplingBlock(nn.Module):
 
     def __init__(self, n_channels_in, n_skip_channels_in, n_channels_out, kernel_size):
         super().__init__()
-        # bilinear is not deterministic, use nearest neighbor instead
-        self.upsample = lambda x: nn.functional.interpolate(x, scale_factor=2)
+
         self.conv1 = nn.Conv2d(
             in_channels=n_skip_channels_in + n_channels_in,
             out_channels=n_channels_out,
@@ -38,7 +37,8 @@ class UpSamplingBlock(nn.Module):
         self.relu1 = nn.ReLU()
 
     def forward(self, x, x_skip):
-        x = self.upsample(x)
+        # bilinear is not deterministic, use nearest neighbor instead
+        x = nn.functional.interpolate(x, scale_factor=2.0)
         x = torch.cat([x, x_skip], dim=1)
         x = self.conv1(x)
         x = self.norm1(x)
@@ -92,7 +92,7 @@ class ConvNeXtUnet(Backbone):
         x = features.pop()
         for block in self.decoder_blocks:
             x = block(x, features.pop())
-        x = nn.functional.interpolate(x, scale_factor=4)
+        x = nn.functional.interpolate(x, scale_factor=4.0)
         x = torch.cat([x, x_orig], dim=1)
         x = self.final_conv(x)
         return x

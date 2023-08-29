@@ -9,13 +9,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.metrics import DetectedKeypoint, Keypoint, KeypointAPMetrics
-from keypoint_detection.utils.heatmap import (
-    BCE_loss,
-    compute_keypoint_probability,
-    create_heatmap_batch,
-    get_keypoints_from_heatmap,
-)
-from keypoint_detection.utils.visualization import visualize_predictions
+from keypoint_detection.utils.heatmap import BCE_loss, create_heatmap_batch, get_keypoints_from_heatmap_batch_maxpool
+from keypoint_detection.utils.visualization import visualize_predicted_heatmaps
 
 
 class KeypointDetector(pl.LightningModule):
@@ -286,11 +281,10 @@ class KeypointDetector(pl.LightningModule):
 
         image_grids = []
         for channel_idx in range(len(self.keypoint_channel_configuration)):
-            grid = visualize_predictions(
+            grid = visualize_predicted_heatmaps(
                 input_images,
                 predicted_heatmaps[:, channel_idx, :, :],
                 gt_heatmaps[channel_idx].cpu(),
-                minimal_keypoint_pixel_distance=6,
             )
             image_grids.append(grid)
         return image_grids
@@ -312,7 +306,7 @@ class KeypointDetector(pl.LightningModule):
     def log_image_grids(self, image_grids, mode: str):
         for channel_configuration, grid in zip(self.keypoint_channel_configuration, image_grids):
             label = KeypointDetector.logging_label(channel_configuration, mode)
-            image_caption = "top: predicted heatmaps, middle: predicted keypoints, bottom: gt heatmap"
+            image_caption = "top: predicted heatmaps, bottom: gt heatmaps"
             self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
 
     def validation_step(self, val_batch, batch_idx):
@@ -371,21 +365,24 @@ class KeypointDetector(pl.LightningModule):
         self, predicted_heatmaps: torch.Tensor, gt_keypoints: List[torch.Tensor], validation_metric: KeypointAPMetrics
     ):
         """
-        Updates the AP metric for a batch of heatmaps and keypoins of a single channel.
+        Updates the AP metric for a batch of heatmaps and keypoins of a single channel (!)
         This is done by extracting the detected keypoints for each heatmap and combining them with the gt keypoints for the same frame, so that
         the confusion matrix can be determined together with the distance thresholds.
 
-        predicted_heatmaps: N x H x W tensor
+        predicted_heatmaps: N x H x W tensor with the batch of predicted heatmaps for a single channel
         gt_keypoints: List of size N, containing K_i x 2 tensors with the ground truth keypoints for the channel of that sample
         """
 
-        # log corner keypoints to AP metrics, frame by frame
+        # log corner keypoints to AP metrics for all images in this batch
         formatted_gt_keypoints = [
             [Keypoint(int(k[0]), int(k[1])) for k in frame_gt_keypoints] for frame_gt_keypoints in gt_keypoints
         ]
-        for i, predicted_heatmap in enumerate(torch.unbind(predicted_heatmaps, 0)):
-            detected_keypoints = self.extract_detected_keypoints_from_heatmap(predicted_heatmap)
-            validation_metric.update(detected_keypoints, formatted_gt_keypoints[i])
+        batch_detected_channel_keypoints = self.extract_detected_keypoints_from_heatmap(
+            predicted_heatmaps.unsqueeze(1)
+        )
+        batch_detected_channel_keypoints = [batch_detected_channel_keypoints[i][0] for i in range(len(gt_keypoints))]
+        for i, detected_channel_keypoints in enumerate(batch_detected_channel_keypoints):
+            validation_metric.update(detected_channel_keypoints, formatted_gt_keypoints[i])
 
     def compute_and_log_metrics_for_channel(
         self, metrics: KeypointAPMetrics, channel: str, training_mode: str
@@ -423,14 +420,27 @@ class KeypointDetector(pl.LightningModule):
         Args:
         heatmap (torch.Tensor) : H x W tensor that represents a heatmap.
         """
+        if heatmap.dtype == torch.float16:
+            # Maxpool_2d not implemented for FP16 apparently
+            heatmap_to_extract_from = heatmap.float()
+        else:
+            heatmap_to_extract_from = heatmap
 
-        detected_keypoints = get_keypoints_from_heatmap(
-            heatmap, self.minimal_keypoint_pixel_distance, self.max_keypoints
+        keypoints, scores = get_keypoints_from_heatmap_batch_maxpool(
+            heatmap_to_extract_from, self.max_keypoints, self.minimal_keypoint_pixel_distance, return_scores=True
         )
-        keypoint_probabilities = compute_keypoint_probability(heatmap, detected_keypoints)
         detected_keypoints = [
-            DetectedKeypoint(detected_keypoints[i][0], detected_keypoints[i][1], keypoint_probabilities[i])
-            for i in range(len(detected_keypoints))
+            [[] for _ in range(heatmap_to_extract_from.shape[1])] for _ in range(heatmap_to_extract_from.shape[0])
         ]
+        for batch_idx in range(len(detected_keypoints)):
+            for channel_idx in range(len(detected_keypoints[batch_idx])):
+                for kp_idx in range(len(keypoints[batch_idx][channel_idx])):
+                    detected_keypoints[batch_idx][channel_idx].append(
+                        DetectedKeypoint(
+                            keypoints[batch_idx][channel_idx][kp_idx][0],
+                            keypoints[batch_idx][channel_idx][kp_idx][1],
+                            scores[batch_idx][channel_idx][kp_idx],
+                        )
+                    )
 
         return detected_keypoints

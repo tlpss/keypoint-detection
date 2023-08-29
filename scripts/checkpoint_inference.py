@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torchvision.transforms.functional import to_tensor
 
-from keypoint_detection.utils.heatmap import get_keypoints_from_heatmap
+from keypoint_detection.utils.heatmap import get_keypoints_from_heatmap_batch_maxpool
 from keypoint_detection.utils.load_checkpoints import get_model_from_wandb_checkpoint
 
 
@@ -27,9 +27,7 @@ def local_inference(model, image: np.ndarray, device="cuda"):
         heatmaps = model(image).squeeze(0)
 
     # extract keypoints from heatmaps
-    predicted_keypoints = [
-        torch.tensor(get_keypoints_from_heatmap(heatmaps[i].cpu(), 2)) for i in range(heatmaps.shape[0])
-    ]
+    predicted_keypoints = get_keypoints_from_heatmap_batch_maxpool(heatmaps.unsqueeze(0))[0]
 
     return predicted_keypoints
 
