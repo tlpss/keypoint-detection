@@ -55,7 +55,7 @@ class KeypointsDataModule(pl.LightningDataModule):
         json_validation_dataset_path: str = None,
         json_test_dataset_path=None,
         augment_train: bool = False,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self.batch_size = batch_size
@@ -72,6 +72,7 @@ class KeypointsDataModule(pl.LightningDataModule):
                 json_validation_dataset_path, keypoint_channel_configuration, **kwargs
             )
         else:
+            print(f"splitting the train set to create a validation set with ratio {validation_split_ratio} ")
             self.train_dataset, self.validation_dataset = KeypointsDataModule._split_dataset(
                 self.train_dataset, validation_split_ratio
             )
@@ -81,13 +82,12 @@ class KeypointsDataModule(pl.LightningDataModule):
 
         # create the transforms if needed and set them to the datasets
         if augment_train:
-            img_width, img_height = self.train_dataset[0][0].shape[1], self.train_dataset[0][0].shape[2]
+            print("Augmenting the training dataset!")
+            img_height, img_width = self.train_dataset[0][0].shape[1], self.train_dataset[0][0].shape[2]
             train_transform = MultiChannelKeypointsCompose(
                 [
-                    A.ColorJitter(),
-                    A.RandomRotate90(),
-                    A.HorizontalFlip(),
-                    A.RandomResizedCrop(img_height, img_width, scale=(0.8, 1.0), ratio=(0.95, 1.0)),
+                    A.ColorJitter(p=0.8),
+                    A.RandomResizedCrop(img_height, img_width, scale=(0.8, 1.0), ratio=(0.9, 1.1), p=1.0),
                 ]
             )
             if isinstance(self.train_dataset, COCOKeypointsDataset):
@@ -103,6 +103,8 @@ class KeypointsDataModule(pl.LightningDataModule):
         validation_size = int(validation_split_ratio * len(dataset))
         train_size = len(dataset) - validation_size
         train_dataset, validation_dataset = torch.utils.data.random_split(dataset, [train_size, validation_size])
+        print(f"train size: {len(train_dataset)}")
+        print(f"validation size: {len(validation_dataset)}")
         return train_dataset, validation_dataset
 
     def train_dataloader(self):

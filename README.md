@@ -74,3 +74,15 @@ TODO
 - why this repo?
   - why not label keypoints as bboxes and use YOLO/Detectron2?
   - ..
+
+# Citing this project
+
+You are invited to cite the following publication if you use this keypoint detector in your research:
+```
+@inproceedings{lips2022synthkeypoints,
+  title={Learning Keypoints from Synthetic Data for Robotic Cloth Folding},
+  author={Lips, Thomas and De Gusseme, Victor-Louis and others},
+  journal={2nd workshop on Representing and Manipulating Deformable Objects - ICRA},
+  year={2022}
+}
+```

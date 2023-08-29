@@ -5,7 +5,7 @@ import torch
 import torchvision
 from matplotlib import cm
 
-from keypoint_detection.utils.heatmap import generate_channel_heatmap, get_keypoints_from_heatmap
+from keypoint_detection.utils.heatmap import generate_channel_heatmap
 
 
 def overlay_image_with_heatmap(images: torch.Tensor, heatmaps: torch.Tensor, alpha=0.5) -> torch.Tensor:
@@ -49,26 +49,17 @@ def overlay_image_with_keypoints(images: torch.Tensor, keypoints: List[torch.Ten
     return overlayed_images
 
 
-def visualize_predictions(
+def visualize_predicted_heatmaps(
     imgs: torch.Tensor,
     predicted_heatmaps: torch.Tensor,
     gt_heatmaps: torch.Tensor,
-    minimal_keypoint_pixel_distance: int,
 ):
     num_images = min(predicted_heatmaps.shape[0], 6)
-    keypoint_sigma = max(1, imgs.shape[2] / 64)
 
     predicted_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], predicted_heatmaps[:num_images])
     gt_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], gt_heatmaps[:num_images])
-    predicted_keypoints = [
-        torch.tensor(get_keypoints_from_heatmap(predicted_heatmaps[i].cpu(), minimal_keypoint_pixel_distance))
-        for i in range(predicted_heatmaps.shape[0])
-    ]
-    predicted_keypoints_overlays = overlay_image_with_keypoints(
-        imgs[:num_images], predicted_keypoints[:num_images], keypoint_sigma
-    )
 
-    images = torch.cat([predicted_heatmap_overlays, predicted_keypoints_overlays, gt_heatmap_overlays])
+    images = torch.cat([predicted_heatmap_overlays, gt_heatmap_overlays])
     grid = torchvision.utils.make_grid(images, nrow=num_images)
     return grid
 
@@ -98,7 +89,7 @@ if __name__ == "__main__":
     shape = images.shape[2:]
 
     heatmaps = create_heatmap_batch(shape, keypoint_channels[0], sigma=6.0, device="cpu")
-    grid = visualize_predictions(images, heatmaps, heatmaps, 6)
+    grid = visualize_predicted_heatmaps(images, heatmaps, heatmaps, 6)
 
     image_numpy = grid.permute(1, 2, 0).numpy()
     plt.imshow(image_numpy)

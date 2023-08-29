@@ -82,6 +82,11 @@ def create_pl_trainer(hparams: dict, wandb_logger: WandbLogger) -> Trainer:
     )
     # cf https://pytorch-lightning.readthedocs.io/en/latest/api/pytorch_lightning.loggers.wandb.html
 
+    # would be better to use mAP metric for checkpointing, but this is not calculated every epoch because it is rather expensive
+    # (and actually this is due to the keypoint extraction from the heatmaps..)
+    # TODO: make this extraction faster by doing it on GPU?
+
+    # epoch_loss still correlates rather well though
     checkpoint_callback = ModelCheckpoint(monitor="validation/epoch_loss", mode="min")
 
     trainer = pl.Trainer(**trainer_kwargs, callbacks=[early_stopping, checkpoint_callback])

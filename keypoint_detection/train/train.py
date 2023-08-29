@@ -37,6 +37,18 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
         type=float,
         help="relative threshold for early stopping callback. If validation epoch loss does not increase with at least this fraction compared to the best result so far for 5 consecutive epochs, training is stopped.",
     )
+    # deterministic argument for PL trainer, not exposed in their CLI.
+    # https://lightning.ai/docs/pytorch/stable/common/trainer.html#reproducibility
+    # set to True by default, but can be set to False to speed up training.
+
+    parser.add_argument(
+        "--non-deterministic-pytorch",
+        action="store_false",
+        dest="deterministic",
+        help="do not use deterministic algorithms for pytorch. This can speed up training, but will make it non-reproducible.",
+    )
+
+    parser.set_defaults(deterministic=True)
     return parent_parser
 
 
@@ -47,12 +59,23 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     """
     # seed all random number generators on all processes and workers for reproducibility
     pl.seed_everything(hparams["seed"], workers=True)
-    # you can uncomment the following lines to make training more reproducible
+
+    # use deterministic algorithms for torch to ensure exact reproducibility
+    # https://pytorch.org/docs/stable/notes/randomness.html#reproducibility
+    # this can slow down training
     # but the impact is limited in my experience.
-    # see https://pytorch.org/docs/stable/notes/randomness.html#reproducibility
-    # import torch
+    # so I prefer to be deterministic (and hence reproducible) by default.
+
+    # also note that following is not enough:
     # torch.backends.cudnn.deterministic = True
-    # torch.backends.cudnn.benchmark = False
+    # there are other non-deterministic algorithms
+    # cf list at https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html#torch.use_deterministic_algorithms
+
+    # the following is still not good enough with Pytorch-Lightning:
+    # import torch
+    # torch.use_deterministic_algorithms(True)
+    # though I am not exactly sure why.
+    # so we have to set it in the trainer! (see create_pl_trainer)
 
     backbone = BackboneFactory.create_backbone(**hparams)
     model = KeypointDetector(backbone=backbone, **hparams)
@@ -61,13 +84,23 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
         save_dir=get_wandb_log_dir_path(),
-        log_model="all",  # log all checkpoints made by PL, see create_trainer for callback
+        log_model=True,  # only log checkpoints at the end of training, i.e. only log the best checkpoint
+        # not suitable for expensive training runs where you might want to restart from checkpoint
+        # but this saves storage and usually keypoint detector training runs are not that expensive anyway
     )
     trainer = create_pl_trainer(hparams, wandb_logger)
     trainer.fit(model, data_module)
 
     if "json_test_dataset_path" in hparams:
-        trainer.test(model, data_module)
+        # check if we have a best checkpoint, if not, use the current weights but log a warning
+        # it makes more sense to evaluate on the best checkpoint because, i.e. the best validation score obtained.
+        # evaluating on the current weights is more noisy and would also result in lower evaluation scores if overfitting happens
+        #  when training longer, even with perfect i.i.d. test/val sets. This is not desired.
+
+        ckpt_path = trainer.checkpoint_callback.best_model_path
+        if ckpt_path == "":
+            print("No best checkpoint found, using current weights for test set evaluation")
+        trainer.test(model, data_module, ckpt_path="best")
 
     return model, trainer
 
