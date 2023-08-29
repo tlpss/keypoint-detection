@@ -421,11 +421,17 @@ class KeypointDetector(pl.LightningModule):
         heatmap (torch.Tensor) : H x W tensor that represents a heatmap.
         """
         if heatmap.dtype == torch.float16:
-            heatmap_full = heatmap.float()
+            # Maxpool_2d not implemented for FP16 apparently
+            heatmap_to_extract_from = heatmap.float()
+        else:
+            heatmap_to_extract_from = heatmap
+
         keypoints, scores = get_keypoints_from_heatmap_batch_maxpool(
-            heatmap_full, self.max_keypoints, self.minimal_keypoint_pixel_distance, return_scores=True
+            heatmap_to_extract_from, self.max_keypoints, self.minimal_keypoint_pixel_distance, return_scores=True
         )
-        detected_keypoints = [[[] for _ in range(heatmap_full.shape[1])] for _ in range(heatmap_full.shape[0])]
+        detected_keypoints = [
+            [[] for _ in range(heatmap_to_extract_from.shape[1])] for _ in range(heatmap_to_extract_from.shape[0])
+        ]
         for batch_idx in range(len(detected_keypoints)):
             for channel_idx in range(len(detected_keypoints[batch_idx])):
                 for kp_idx in range(len(keypoints[batch_idx][channel_idx])):
