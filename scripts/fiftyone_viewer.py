@@ -8,7 +8,7 @@ import tqdm
 from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.train.utils import parse_channel_configuration
-from keypoint_detection.utils.heatmap import compute_keypoint_probability, get_keypoints_from_heatmap
+from keypoint_detection.utils.heatmap import compute_keypoint_probability, get_keypoints_from_heatmap_batch_maxpool
 from keypoint_detection.utils.load_checkpoints import get_model_from_wandb_checkpoint
 
 
@@ -45,7 +45,7 @@ def visualize_predictions(
             for model_name, model in models.items():
                 heatmaps = model(image)[0]
                 # extract keypoints from heatmaps for each channel
-                predicted_keypoints = [get_keypoints_from_heatmap(heatmap, 3) for heatmap in heatmaps]
+                predicted_keypoints = get_keypoints_from_heatmap_batch_maxpool(heatmaps.unsqueeze(0))[0]
                 predicted_keypoint_probabilities = [
                     compute_keypoint_probability(heatmaps[i], predicted_keypoints[i]) for i in range(len(heatmaps))
                 ]
@@ -116,11 +116,11 @@ def _add_instance_keypoints_to_fo_sample(
 
 if __name__ == "__main__":
     checkpoint_dict = {
-        "pyflex": "tlips/synthetic-cloth-keypoints/model-oz195ppw:v2",
-        "real-data": "tlips/synthetic-cloth-keypoints/model-0l8jfuk6:v5",
+        "maxvit-256-flat": "tlips/synthetic-cloth-keypoints-quest-for-precision/model-5ogj44k0:v0",
+        "maxvit-512-flat": "tlips/synthetic-cloth-keypoints-quest-for-precision/model-1of5e6qs:v0",
     }
 
-    dataset_path = "/home/tlips/Code/RTFClothes/512x256/towels-test_resized_512x256/towels-test.json"
+    dataset_path = "/storage/users/tlips/RTFClothes/towels-test_resized_256x256/towels-test.json"
     channel_config = "corner0=corner1=corner2=corner3"
     detect_only_visible_keypoints = False
 
