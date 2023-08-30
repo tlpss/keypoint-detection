@@ -46,6 +46,8 @@ For an example, see the `test_dataset` at `test/test_dataset`.
 ### Labeling
 If you want to label data, we use[CVAT](https://github.com/opencv/cvat) labeling tool. The flow and the code to create COCO keypoints datasets is all available in the [airo-dataset-tools](https://github.com/airo-ugent/airo-mono/tree/main) package.
 
+It is best to label your data with floats that represent the subpixel location of the keypoints. This allows for more precise resizing of the images later on. The keypoint detector cast them to ints before training to obtain the pixel they belong to (it does not support sub-pixel detections).
+
 ## Training
 
 There are 2 ways to train the keypoint detector:
@@ -57,6 +59,27 @@ A minimal sweep example  is given in `test/configuration.py`. The same content s
 
 
 To create your own configuration: run `python train.py -h` to see all parameter options and their documentation.
+
+## Metrics
+
+TO calculate AP, precision or recall, the detections need to be classified into False Positives and False negatives as for object detection or instance segmentation.
+
+This package simply uses a number of euclidian pixel distance thresholds. You can set the euclidian distances for which you want to calculate the metrics in the hyperparameters.
+
+Pixel perfect keypoints have a pixel distance of 0, so if you want a metric for pixel-perfect keypoints you should add a threshold distance of 0.
+
+Usually it is best to calculate the real-world deviations (in cm) that are acceptable and then determine the threshold(s) (in pixels) you are interested in.
+
+In general a lower threshold will result in a lower metric. The size of this gap is determined by the 'ambiguity' of your dataset and/or the accuracy of your labels.
+
+#TODO: add a figure to illustrate this.
+
+
+We do not use OKS as in COCO for 2 reasons:
+1. it requires bbox annotations, which are not always required for keypoint detection itself and represent additional label effort.
+2. More importantly, in robotics the size of an object does not always correlate with the required precision. If a large and a small mug stand on a table, they require the same precise localisation of keypoints for a robot to grasp them even though their apparent size is different.
+3. (you need to estimate label variance, though you could simply set k=1 and skip this part)
+
 
 ## Using a trained model (Inference)
 During training Pytorch Lightning will have saved checkpoints. See `scripts/checkpoint_inference.py` for a simple example to run inference with a checkpoint.
@@ -82,12 +105,7 @@ This repo is somewhat agnostic to that choice.
 For 1: crop your dataset upfront and train the detector on those crops, at inference: chain the object detector and the keypoint detector.
 for 2: If you can do the association manually, simply do it after inference. However this repo does not offer learning the associations as in the [Part Affinity Fields]() paper.
 
-## Note on the metric threshold.
 
-We do not use OKS as in COCO for 2 reasons:
-1. it requires bbox annotations, which are not always required for keypoint detection itself and represent additional label effort.
-2. More importantly, in robotics the size of an object does not always correlate with the required precision. If a large and a small mug stand on a table, they require the same precise localisation of keypoints for a robot to grasp them even though their apparent size is different.
-3. (you need to estimate label variance, though you could simply set k=1 and skip this part)
 ## Rationale:
 TODO
 - why this repo?
