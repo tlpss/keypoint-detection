@@ -337,14 +337,22 @@ class KeypointDetector(pl.LightningModule):
         self.log("test/gt_loss", result_dict["gt_loss"])
 
     def log_and_reset_mean_ap(self, mode: str):
-        mean_ap = 0.0
+        mean_ap_per_threshold = torch.zeros(len(self.maximal_gt_keypoint_pixel_distances))
         metrics = self.ap_test_metrics if mode == "test" else self.ap_validation_metrics
 
         for channel_idx, channel_name in enumerate(self.keypoint_channel_configuration):
-            channel_mean_ap = self.compute_and_log_metrics_for_channel(metrics[channel_idx], channel_name, mode)
-            mean_ap += channel_mean_ap
-        mean_ap /= len(self.keypoint_channel_configuration)
+            channel_aps = self.compute_and_log_metrics_for_channel(metrics[channel_idx], channel_name, mode)
+            mean_ap_per_threshold += torch.tensor(channel_aps)
+
+        for i, maximal_distance in enumerate(self.maximal_gt_keypoint_pixel_distances):
+            self.log(
+                f"{mode}/meanAP/d={float(maximal_distance):.1f}",
+                mean_ap_per_threshold[i] / len(self.keypoint_channel_configuration),
+            )
+
+        mean_ap = mean_ap_per_threshold.mean() / len(self.keypoint_channel_configuration)
         self.log(f"{mode}/meanAP", mean_ap)
+        self.log(f"{mode}/meanAP/meanAP", mean_ap)
 
     def validation_epoch_end(self, outputs):
         """
@@ -386,9 +394,9 @@ class KeypointDetector(pl.LightningModule):
 
     def compute_and_log_metrics_for_channel(
         self, metrics: KeypointAPMetrics, channel: str, training_mode: str
-    ) -> float:
+    ) -> List[float]:
         """
-        logs AP of predictions of single Channel² for each threshold distance (as configured) for the categorization of the keypoints into a confusion matrix.
+        logs AP of predictions of single Channel for each threshold distance (as configured) for the categorization of the keypoints into a confusion matrix.
         Also resets metric and returns resulting meanAP over all channels.
         """
         # compute ap's
@@ -399,9 +407,9 @@ class KeypointDetector(pl.LightningModule):
 
         mean_ap = sum(ap_metrics.values()) / len(ap_metrics.values())
 
-        self.log(f"{training_mode}/{channel}_meanAP", mean_ap)  # log top level for wandb hyperparam chart.
+        self.log(f"{training_mode}/{channel}_ap/meanAP", mean_ap)  # log top level for wandb hyperparam chart.
         metrics.reset()
-        return mean_ap
+        return list(ap_metrics.values())
 
     def is_ap_epoch(self) -> bool:
         """Returns True if the AP should be calculated in this epoch."""
