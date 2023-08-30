@@ -10,15 +10,16 @@ This package is been used for research at the [AI and Robotics](https://airo.uge
 
 
 ## Main Features
+- The detector can deal with an **arbitrary number of keypoint channels**, that can contain **a varying amount of keypoints**. You can easily configure which keypoint types from the COCO dataset should be mapped onto the different channels of the keypoint detector. This flexibility allows to e.g. combine different semantic locations that have symmetries onto the same channel to overcome this ambiguity.
+- We use the standard **COCO dataset format**.
 
-- This package contains **different backbones** (Unet-like, dilated CNN, Unet-like with pretrained ConvNeXt encoder). Furthermore you can  easily add new backbones or loss functions. The head of the keypoint detector is a single CNN layer.
-- The package uses the often-used **COCO dataset format**.
-- The detector can deal with an **arbitrary number of keypoint channels**, that can contain **a varying amount of keypoints**. You can easily configure which keypoint types from the COCO dataset should be mapped onto the different channels of the keypoint detector.
-- The package contains an implementation of the Average Precision metric for keypoint detection.
-- Extensive **logging to wandb is provided**: The loss for each channel is logged, together with the AP metrics for all specified treshold distances. Furthermore, the raw heatmaps, detected keypoints and ground truth heatmaps are logged at every epoch for the first batch to provide insight in the training dynamics and to verify all data processing is as desired.
+-  **different backbones** can be used (Unet-like, dilated CNN, Unet-like with pretrained encoders). Furthermore you can  easily add new backbones or loss functions. The head of the keypoint detector is a single CNN layer.
+
+- The package contains an implementation of the Average Precision metric for keypoint detection. The threshold distance for classification of detections as FP or TP is based on L2 distance between the keypoints and ground truth keypoints.
+- Extensive **logging to wandb is provided**: The train/val loss for each channel is logged, together with the AP metrics for all specified treshold distances and all channels.  Furthermore, the raw heatmaps, detected keypoints and ground truth heatmaps are logged to provide insight in the training dynamics and to verify all data processing is as desired.
 - All **hyperparameters are configurable** using a python argumentparser or wandb sweeps.
 
-note: this is the second version of the package, for the older version that used a custom dataset format, see the github releases.
+note: this package is still under development and we make no commitment on backwards compatibility nor reproducibility on the main branch. If you need this, it is best to pin a single commit.
 
 
 TODO: add integration example.
@@ -43,7 +44,7 @@ For an example, see the `test_dataset` at `test/test_dataset`.
 
 
 ### Labeling
-If you want to label data, we provide integration with the [CVAT](https://github.com/opencv/cvat) labeling tool: You can annotate your data and export it in their custom format, which can then be converted to COCO format. Take a look [here](labeling/Readme.md) for more information on this workflow and an example. To visualize a given dataset, you can use the  `keypoint_detection/utils/visualization.py` script.
+If you want to label data, we use[CVAT](https://github.com/opencv/cvat) labeling tool. The flow and the code to create COCO keypoints datasets is all available in the [airo-dataset-tools](https://github.com/airo-ugent/airo-mono/tree/main) package.
 
 ## Training
 
@@ -67,8 +68,26 @@ For benchmarking the inference (or training), see `scripts/benchmark.py`.
 
 
 ## Note on performance
-- Keep in mind that the Average Precision is a very expensive operation, it can easily take as long to calculate the AP of a .1 data split as it takes to train on the remaining 90% of the data. Therefore it makes sense to use the metric sparsely. The AP will always be calculated at the final epoch, so for optimal train performance (w/o intermediate feedback), you can e.g. set the `ap_epoch_start` parameter to your max number of epochs + 1.
+- Keep in mind that calculating the Average Precision is expensive operation, it can easily take as long to calculate the AP of a .1 data split as it takes to train on the remaining 90% of the data. Therefore it makes sense to use the metric sparsely, for which hyperparameters are available. The AP will always be calculated at the final epoch.
 
+## Note on top-down vs. bottom-up keypoint detection.
+There are 2 ways to do keypoint detection when multiple instances are present in an image:
+1. first do instance detection and then detect keypoints on a crop of the bbox for each instance
+2. detect keypoints on the full image.
+
+Option 1 suffers from compounding errors (if the instance is not detected, no keypoints will be detected) and/or requires you to train (and hence label) an object detector.
+Option 2 can have lower performance for the keypoints (more 'noise' in the image that can distract the detector) and if you have multiple keypoints / instance as well as multiple instances per image, you need to do keypoint association.
+
+This repo is somewhat agnostic to that choice.
+For 1: crop your dataset upfront and train the detector on those crops, at inference: chain the object detector and the keypoint detector.
+for 2: If you can do the association manually, simply do it after inference. However this repo does not offer learning the associations as in the [Part Affinity Fields]() paper.
+
+## Note on the metric threshold.
+
+We do not use OKS as in COCO for 2 reasons:
+1. it requires bbox annotations, which are not always required for keypoint detection itself and represent additional label effort.
+2. More importantly, in robotics the size of an object does not always correlate with the required precision. If a large and a small mug stand on a table, they require the same precise localisation of keypoints for a robot to grasp them even though their apparent size is different.
+3. (you need to estimate label variance, though you could simply set k=1 and skip this part)
 ## Rationale:
 TODO
 - why this repo?
