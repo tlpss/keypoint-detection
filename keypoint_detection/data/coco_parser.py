@@ -51,6 +51,8 @@ class CocoKeypointAnnotation(BaseModel):
     image_id: ImageID
 
     num_keypoints: Optional[int]
+    # COCO keypoints can be floats if they specify the exact location of the keypoint (e.g. from CVAT)
+    # even though COCO format specifies zero-indexed integers (i.e. every keypoint in the [0,1]x [0.1] pixel box becomes (0,0)
     keypoints: List[float]
 
     # TODO: add checks.
