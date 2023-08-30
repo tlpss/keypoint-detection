@@ -52,10 +52,6 @@ def generate_channel_heatmap(
          Torch.tensor:  A Tensor with the combined heatmaps of all keypoints.
     """
 
-    # cast keypoints (center) to ints to make grid align with pixel raster.
-    #  Otherwise, the AP metric for  d = 1 will not result in 1
-    #  if the gt_heatmaps are used as input.
-
     assert isinstance(keypoints, torch.Tensor)
 
     if keypoints.numel() == 0:
