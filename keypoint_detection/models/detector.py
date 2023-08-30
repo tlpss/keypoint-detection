@@ -116,7 +116,7 @@ class KeypointDetector(pl.LightningModule):
         # parse the gt pixel distances
         if isinstance(maximal_gt_keypoint_pixel_distances, str):
             maximal_gt_keypoint_pixel_distances = [
-                float(val) for val in maximal_gt_keypoint_pixel_distances.strip().split(" ")
+                int(val) for val in maximal_gt_keypoint_pixel_distances.strip().split(" ")
             ]
         self.maximal_gt_keypoint_pixel_distances = maximal_gt_keypoint_pixel_distances
 
@@ -395,7 +395,7 @@ class KeypointDetector(pl.LightningModule):
         ap_metrics = metrics.compute()
         print(f"{ap_metrics=}")
         for maximal_distance, ap in ap_metrics.items():
-            self.log(f"{training_mode}/{channel}_ap/d={maximal_distance}", ap)
+            self.log(f"{training_mode}/{channel}_ap/d={float(maximal_distance):.1f}", ap)
 
         mean_ap = sum(ap_metrics.values()) / len(ap_metrics.values())
 

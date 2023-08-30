@@ -43,17 +43,17 @@ class ClassifiedKeypoint(DetectedKeypoint):
     unsafe_hash -> dirty fix to allow for hash w/o explictly telling python the object is immutable.
     """
 
-    threshold_distance: float
+    threshold_distance: int
     true_positive: bool
 
 
 def keypoint_classification(
     detected_keypoints: List[DetectedKeypoint],
     ground_truth_keypoints: List[Keypoint],
-    threshold_distance: float,
+    threshold_distance: int,
 ) -> List[ClassifiedKeypoint]:
     """Classifies keypoints of a **single** frame in True Positives or False Positives by searching for unused gt keypoints in prediction probability order
-    that are within distance d of the detected keypoint.
+    that are within distance d of the detected keypoint (greedy matching).
 
     Args:
         detected_keypoints (List[DetectedKeypoint]): The detected keypoints in the frame
@@ -73,7 +73,8 @@ def keypoint_classification(
         matched = False
         for gt_keypoint in ground_truth_keypoints:
             distance = detected_keypoint.l2_distance(gt_keypoint)
-            if distance < threshold_distance:
+            # add small epsilon to avoid numerical errors
+            if distance <= threshold_distance + 1e-5:
                 classified_keypoint = ClassifiedKeypoint(
                     detected_keypoint.u,
                     detected_keypoint.v,
@@ -209,7 +210,7 @@ class KeypointAPMetrics(Metric):
 
     full_state_update = False
 
-    def __init__(self, keypoint_threshold_distances: List[float], dist_sync_on_step=False):
+    def __init__(self, keypoint_threshold_distances: List[int], dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.ap_metrics = [KeypointAPMetric(dst, dist_sync_on_step) for dst in keypoint_threshold_distances]
