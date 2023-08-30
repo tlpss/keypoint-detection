@@ -16,7 +16,7 @@ from keypoint_detection.utils.heatmap import compute_keypoint_probability, get_k
 from keypoint_detection.utils.load_checkpoints import get_model_from_wandb_checkpoint
 
 
-class KeypointModelViewer:
+class DetectorFiftyoneViewer:
     def __init__(
         self,
         dataset_path: str,
@@ -223,6 +223,6 @@ if __name__ == "__main__":
     detect_only_visible_keypoints = False
     n_samples = 100
     models = {key: get_model_from_wandb_checkpoint(value) for key, value in checkpoint_dict.items()}
-    visualizer = KeypointModelViewer(dataset_path, models, channel_config, detect_only_visible_keypoints, n_samples)
+    visualizer = DetectorFiftyoneViewer(dataset_path, models, channel_config, detect_only_visible_keypoints, n_samples)
     visualizer.predict_and_compute_metrics()
     visualizer.visualize_predictions()
