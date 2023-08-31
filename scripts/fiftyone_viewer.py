@@ -24,6 +24,7 @@ class DetectorFiftyoneViewer:
         channel_config: str,
         detect_only_visible_keypoints: bool = False,
         n_samples: Optional[int] = None,
+        ap_threshold_distances: Optional[List[int]] = None,
     ):
         self.dataset_path = dataset_path
         self.models = models
@@ -31,6 +32,11 @@ class DetectorFiftyoneViewer:
         self.detect_only_visible_keypoints = detect_only_visible_keypoints
         self.n_samples = n_samples
         self.parsed_channel_config = parse_channel_configuration(channel_config)
+        self.ap_threshold_distances = ap_threshold_distances
+        if self.ap_threshold_distances is None:
+            self.ap_threshold_distances = [
+                2,
+            ]
 
         dataset = COCOKeypointsDataset(
             dataset_path, self.parsed_channel_config, detect_only_visible_keypoints=detect_only_visible_keypoints
@@ -42,8 +48,8 @@ class DetectorFiftyoneViewer:
 
         # create the AP metrics
         self.ap_metrics = {
-            name: [KeypointAPMetrics(model.maximal_gt_keypoint_pixel_distances) for _ in self.parsed_channel_config]
-            for name, model in models.items()
+            name: [KeypointAPMetrics(self.ap_threshold_distances) for _ in self.parsed_channel_config]
+            for name in models.keys()
         }
 
         # set all models to eval mode to be sure.
@@ -135,9 +141,9 @@ class DetectorFiftyoneViewer:
                 model_ap_scores = self.ap_scores[model_name][sample_idx]
 
                 # log map
-                ap_values = np.zeros((len(self.parsed_channel_config), len(model.maximal_gt_keypoint_pixel_distances)))
+                ap_values = np.zeros((len(self.parsed_channel_config), len(self.ap_threshold_distances)))
                 for channel_idx in range(len(self.parsed_channel_config)):
-                    for max_dist_idx in range(len(model.maximal_gt_keypoint_pixel_distances)):
+                    for max_dist_idx in range(len(self.ap_threshold_distances)):
                         ap_values[channel_idx, max_dist_idx] = model_ap_scores[channel_idx][max_dist_idx]
                 sample[f"{model_name}_keypoints_mAP"] = ap_values.mean()
                 sample.save()
@@ -214,14 +220,18 @@ class DetectorFiftyoneViewer:
 if __name__ == "__main__":
     # TODO: make CLI for this -> hydra config?
     checkpoint_dict = {
-        "maxvit-256-flat": "tlips/synthetic-cloth-keypoints-quest-for-precision/model-5ogj44k0:v0",
-        "maxvit-512-flat": "tlips/synthetic-cloth-keypoints-quest-for-precision/model-1of5e6qs:v0",
+        # "maxvit-256-flat": "tlips/synthetic-cloth-keypoints-quest-for-precision/model-5ogj44k0:v0",
+        # "maxvit-512-flat": "tlips/synthetic-cloth-keypoints-quest-for-precision/model-1of5e6qs:v0",
+        "maxvit-pyflex-20k": "tlips/synthetic-cloth-keypoints/model-qiellxgb:v0"
     }
 
     dataset_path = "/storage/users/tlips/RTFClothes/towels-test_resized_256x256/towels-test.json"
+    dataset_path = (
+        "/home/tlips/Documents/synthetic-cloth-data/synthetic-cloth-data/data/datasets/TOWEL/00/annotations_val.json"
+    )
     channel_config = "corner0=corner1=corner2=corner3"
     detect_only_visible_keypoints = False
-    n_samples = 100
+    n_samples = 50
     models = {key: get_model_from_wandb_checkpoint(value) for key, value in checkpoint_dict.items()}
     visualizer = DetectorFiftyoneViewer(dataset_path, models, channel_config, detect_only_visible_keypoints, n_samples)
     visualizer.predict_and_compute_metrics()
