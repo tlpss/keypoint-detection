@@ -38,13 +38,9 @@ class DetectorFiftyoneViewer:
                 2,
             ]
 
-        dataset = COCOKeypointsDataset(
+        self.coco_dataset = COCOKeypointsDataset(
             dataset_path, self.parsed_channel_config, detect_only_visible_keypoints=detect_only_visible_keypoints
         )
-        if self.n_samples is not None:
-            dataset = torch.utils.data.Subset(dataset, range(0, self.n_samples))
-
-        self.dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
 
         # create the AP metrics
         self.ap_metrics = {
@@ -61,14 +57,36 @@ class DetectorFiftyoneViewer:
         # {model: {sample_idx: {channel_idx: [ap_score]}}
         self.ap_scores = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
 
+        # create the fiftyone dataset
+        self.fo_dataset = fo.Dataset.from_dir(
+            dataset_type=fo.types.COCODetectionDataset,
+            data_path=os.path.dirname(self.dataset_path),
+            label_types=[],  # do not load the coco annotations
+            labels_path=self.dataset_path,
+        )
+        self.fo_dataset.add_dynamic_sample_fields()
+        self.fo_dataset = self.fo_dataset.limit(self.n_samples)
+
+        # order of coco dataset does not necessarily match the order of the fiftyone dataset
+        # so we create a mapping of image paths to dataset indices
+        # to match fiftyone samples to coco dataset samples to obtain the GT keypoints.
+        self.image_path_to_dataset_idx = {}
+        for idx, entry in enumerate(self.coco_dataset.dataset):
+            image_path, _ = entry
+            image_path = str(self.coco_dataset.dataset_dir_path / image_path)
+            self.image_path_to_dataset_idx[image_path] = idx
+
     def predict_and_compute_metrics(self):
         with torch.no_grad():
-            sample_idx = 0
-            for image, keypoints in tqdm.tqdm(self.dataloader):
-                # [[channel1], [[[x,y],[x,y]]]
+            fo_sample_idx = 0
+            for fo_sample in tqdm.tqdm(self.fo_dataset):
+                image_path = fo_sample.filepath
+                image_idx = self.image_path_to_dataset_idx[image_path]
+                image, keypoints = self.coco_dataset[image_idx]
+                image = image.unsqueeze(0)
                 gt_keypoints = []
                 for channel in keypoints:
-                    gt_keypoints.append([[kp[0].item(), kp[1].item()] for kp in channel])
+                    gt_keypoints.append([[kp[0], kp[1]] for kp in channel])
                 self.gt_keypoints.append(gt_keypoints)
 
                 for model_name, model in self.models.items():
@@ -99,41 +117,26 @@ class DetectorFiftyoneViewer:
                         )
 
                     for channel_idx in range(len(self.parsed_channel_config)):
-                        self.ap_scores[model_name][sample_idx].update(
+                        self.ap_scores[model_name][fo_sample_idx].update(
                             {channel_idx: list(self.ap_metrics[model_name][channel_idx].compute().values())}
                         )
 
-                sample_idx += 1
+                fo_sample_idx += 1
 
     def visualize_predictions(
         self,
     ):
         """visualize keypoint detectors on a coco dataset. Requires the  coco json, thechannel config and a dict of wandb checkpoints."""
 
-        # iterate over dataset and compute predictions & gt keypoints as well as metrics
-
-        ## create fiftyone dataset and add the predictions and gt
-
-        fo_dataset = fo.Dataset.from_dir(
-            dataset_type=fo.types.COCODetectionDataset,
-            data_path=os.path.dirname(self.dataset_path),
-            label_types=[],  # do not load the coco annotations
-            labels_path=self.dataset_path,
-        )
-
-        fo_dataset.add_dynamic_sample_fields()
-
-        fo_dataset = fo_dataset.limit(self.n_samples)
-
         # add the ground truth to the dataset
-        for sample_idx, sample in enumerate(fo_dataset):
+        for sample_idx, sample in enumerate(self.fo_dataset):
             self._add_instance_keypoints_to_fo_sample(
                 sample, "ground_truth_keypoints", self.gt_keypoints[sample_idx], None, self.parsed_channel_config
             )
 
         # add the predictions to the dataset
         for model_name, model in self.models.items():
-            for sample_idx, sample in enumerate(fo_dataset):
+            for sample_idx, sample in enumerate(self.fo_dataset):
                 keypoints, probabilities = self.predicted_keypoints[model_name][sample_idx]
                 self._add_instance_keypoints_to_fo_sample(
                     sample, f"{model_name}_keypoints", keypoints, probabilities, self.parsed_channel_config
@@ -150,9 +153,9 @@ class DetectorFiftyoneViewer:
         # could do only one loop instead of two for the predictions usually, but we have to compute the GT keypoints, so we need to loop over the dataset anyway
         # https://docs.voxel51.com/user_guide/dataset_creation/index.html#model-predictions
 
-        print(fo_dataset)
+        print(self.fo_dataset)
 
-        session = fo.launch_app(dataset=fo_dataset)
+        session = fo.launch_app(dataset=self.fo_dataset)
         session = self._configure_session_colors(session)
         session.wait()
 
@@ -230,7 +233,7 @@ if __name__ == "__main__":
         "/home/tlips/Documents/synthetic-cloth-data/synthetic-cloth-data/data/datasets/TOWEL/00/annotations_val.json"
     )
     channel_config = "corner0=corner1=corner2=corner3"
-    detect_only_visible_keypoints = False
+    detect_only_visible_keypoints = True
     n_samples = 50
     models = {key: get_model_from_wandb_checkpoint(value) for key, value in checkpoint_dict.items()}
     visualizer = DetectorFiftyoneViewer(dataset_path, models, channel_config, detect_only_visible_keypoints, n_samples)
