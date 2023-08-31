@@ -254,9 +254,7 @@ class KeypointDetector(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         log_images = batch_idx == 0 and self.current_epoch > 0
-        should_log_ap = (
-            self.is_ap_epoch()
-        )  # and batch_idx < 20 # limit AP calculation to first 20 batches to save time
+        should_log_ap = self.is_ap_epoch() and batch_idx < 20  # limit AP calculation to first 20 batches to save time
         include_vis_data = log_images or should_log_ap
 
         result_dict = self.shared_step(
@@ -328,7 +326,7 @@ class KeypointDetector(pl.LightningModule):
         if self.is_ap_epoch():
             self.update_ap_metrics(result_dict, self.ap_validation_metrics)
 
-            log_images = batch_idx == 0 and self.current_epoch > 0
+            log_images = batch_idx == 0 and self.current_epoch > 0 and self.is_ap_epoch()
             if log_images:
                 image_grids = self.visualize_predictions_channels(result_dict)
                 self.log_image_grids(image_grids, mode="validation")
@@ -350,7 +348,14 @@ class KeypointDetector(pl.LightningModule):
 
     def log_and_reset_mean_ap(self, mode: str):
         mean_ap_per_threshold = torch.zeros(len(self.maximal_gt_keypoint_pixel_distances))
-        metrics = self.ap_test_metrics if mode == "test" else self.ap_validation_metrics
+        if mode == "train":
+            metrics = self.ap_training_metrics
+        elif mode == "validation":
+            metrics = self.ap_validation_metrics
+        elif mode == "test":
+            metrics = self.ap_test_metrics
+        else:
+            raise ValueError(f"mode {mode} not recognized")
 
         # calculate APs for each channel and each threshold distance, and log them
         print(f" # {mode} metrics:")
