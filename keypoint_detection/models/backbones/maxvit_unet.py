@@ -37,30 +37,31 @@ class MaxVitUnet(Backbone):
                         stage 4 ---1/32----|
     """
 
-    # manually gathered for maxvit_nano_rw_256
-    feature_config = [
+    # 15M params
+    FEATURE_CONFIG = [
         {"down": 2, "channels": 64},
         {"down": 4, "channels": 64},
         {"down": 8, "channels": 128},
         {"down": 16, "channels": 256},
         {"down": 32, "channels": 512},
     ]
+    MODEL_NAME = "maxvit_nano_rw_256"
     feature_layers = ["stem", "stages.0", "stages.1", "stages.2", "stages.3"]
 
     def __init__(self, **kwargs) -> None:
         super().__init__()
-        self.encoder = timm.create_model("maxvit_nano_rw_256", pretrained=True, num_classes=0)  # 15M params
+        self.encoder = timm.create_model(self.MODEL_NAME, pretrained=True, num_classes=0)
         self.feature_extractor = create_feature_extractor(self.encoder, self.feature_layers)
         self.decoder_blocks = nn.ModuleList()
-        for config_skip, config_in in zip(self.feature_config, self.feature_config[1:]):
+        for config_skip, config_in in zip(self.FEATURE_CONFIG, self.FEATURE_CONFIG[1:]):
             block = UpSamplingBlock(config_in["channels"], config_skip["channels"], config_skip["channels"], 3)
             self.decoder_blocks.append(block)
 
         self.final_conv = nn.Conv2d(
-            self.feature_config[0]["channels"], self.feature_config[0]["channels"], 3, padding="same"
+            self.FEATURE_CONFIG[0]["channels"], self.FEATURE_CONFIG[0]["channels"], 3, padding="same"
         )
         self.final_upsampling_block = UpSamplingBlock(
-            self.feature_config[0]["channels"], 3, self.feature_config[0]["channels"], 3
+            self.FEATURE_CONFIG[0]["channels"], 3, self.FEATURE_CONFIG[0]["channels"], 3
         )
 
     def forward(self, x):
@@ -76,26 +77,36 @@ class MaxVitUnet(Backbone):
         return x
 
     def get_n_channels_out(self):
-        return self.feature_config[0]["channels"]
+        return self.FEATURE_CONFIG[0]["channels"]
+
+
+class MaxVitPicoUnet(MaxVitUnet):
+    MODEL_NAME = "maxvit_rmlp_pico_rw_256"  # 7.5M params.
+    FEATURE_CONFIG = [
+        {"down": 2, "channels": 32},
+        {"down": 4, "channels": 32},
+        {"down": 8, "channels": 64},
+        {"down": 16, "channels": 128},
+        {"down": 32, "channels": 256},
+    ]
 
 
 if __name__ == "__main__":
-    # model = timm.create_model("maxvit_rmlp_pico_rw_256")
+    model = timm.create_model("maxvit_rmlp_pico_rw_256")
     # model = timm.create_model("maxvit_nano_rw_256")
-    # feature_extractor = create_feature_extractor(model, ["stem", "stages.0", "stages.1", "stages.2", "stages.3"])
-    # x = torch.zeros((1, 3, 256, 256))
-    # features = list(feature_extractor(x).values())
-    # n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    # print(f"num params = {n_params/10**6:.2f} M")
-    # feature_config = []
-    # for x in features:
-    #     print(f"{x.shape=}")
-    #     config = {"down": 256 // x.shape[2], "channels": x.shape[1]}
-    #     feature_config.append(config)
-    # print(f"{feature_config=}")
+    feature_extractor = create_feature_extractor(model, ["stem", "stages.0", "stages.1", "stages.2", "stages.3"])
+    x = torch.zeros((1, 3, 256, 256))
+    features = list(feature_extractor(x).values())
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"num params = {n_params/10**6:.2f} M")
+    feature_config = []
+    for x in features:
+        print(f"{x.shape=}")
+        config = {"down": 256 // x.shape[2], "channels": x.shape[1]}
+        feature_config.append(config)
+    print(f"{feature_config=}")
 
-    print("creating MaxViTUnet")
-    model = MaxVitUnet()
+    model = MaxVitPicoUnet()
     x = torch.zeros((1, 3, 256, 256))
     y = model(x)
     print(f"{y.shape=}")
