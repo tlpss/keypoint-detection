@@ -84,10 +84,13 @@ class KeypointsDataModule(pl.LightningDataModule):
         if augment_train:
             print("Augmenting the training dataset!")
             img_height, img_width = self.train_dataset[0][0].shape[1], self.train_dataset[0][0].shape[2]
+            aspect_ratio = img_width / img_height
             train_transform = MultiChannelKeypointsCompose(
                 [
                     A.ColorJitter(p=0.8),
-                    A.RandomResizedCrop(img_height, img_width, scale=(0.8, 1.0), ratio=(0.9, 1.1), p=1.0),
+                    A.RandomResizedCrop(
+                        img_height, img_width, scale=(0.8, 1.0), ratio=(0.9 * aspect_ratio, 1.1 * aspect_ratio), p=1.0
+                    ),
                 ]
             )
             if isinstance(self.train_dataset, COCOKeypointsDataset):
