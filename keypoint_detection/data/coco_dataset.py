@@ -99,6 +99,10 @@ class COCOKeypointsDataset(ImageDataset):
 
         keypoints = self.dataset[index][1]
 
+        if self.transform:
+            transformed = self.transform(image=image, keypoints=keypoints)
+            image, keypoints = transformed["image"], transformed["keypoints"]
+
         # convert all keypoints to integers values.
         # COCO keypoints can be floats if they specify the exact location of the keypoint (e.g. from CVAT)
         # even though COCO format specifies zero-indexed integers (i.e. every keypoint in the [0,1]x [0.1] pixel box becomes (0,0)
@@ -110,10 +114,6 @@ class COCOKeypointsDataset(ImageDataset):
             [[math.floor(keypoint[0]), math.floor(keypoint[1])] for keypoint in channel_keypoints]
             for channel_keypoints in keypoints
         ]
-        if self.transform:
-            transformed = self.transform(image=image, keypoints=keypoints)
-            image, keypoints = transformed["image"], transformed["keypoints"]
-
         image = self.image_to_tensor_transform(image)
         return image, keypoints
 
