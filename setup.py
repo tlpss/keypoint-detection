@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 setup(
     name="keypoint_detection",
@@ -7,7 +7,7 @@ setup(
     version="1.0",
     description="Pytorch Models, Modules etc for keypoint detection",
     url="https://github.com/tlpss/keypoint-detection",
-    packages=["keypoint_detection"],
+    packages=[find_packages()],
     install_requires=[
         "torch>=0.10",
         "torchvision>=0.11",
