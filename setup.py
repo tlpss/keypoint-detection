@@ -7,7 +7,7 @@ setup(
     version="1.0",
     description="Pytorch Models, Modules etc for keypoint detection",
     url="https://github.com/tlpss/keypoint-detection",
-    packages=[find_packages()],
+    packages=find_packages(exclude=("test",)),
     install_requires=[
         "torch>=0.10",
         "torchvision>=0.11",

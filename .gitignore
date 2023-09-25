@@ -10,3 +10,4 @@ lightning_logs**
 **.ckpt
 
 **/checkpoints/
+build/**
