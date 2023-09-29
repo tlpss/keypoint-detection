@@ -97,6 +97,6 @@ def create_pl_trainer(hparams: dict, wandb_logger: WandbLogger) -> Trainer:
 
 def parse_channel_configuration(channel_configuration: str) -> List[List[str]]:
     assert isinstance(channel_configuration, str)
-    channels = channel_configuration.split(";")
+    channels = channel_configuration.split(":")
     channels = [[category.strip() for category in channel.split("=")] for channel in channels]
     return channels
