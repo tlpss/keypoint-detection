@@ -29,7 +29,7 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument(
         "--keypoint_channel_configuration",
         type=str,
-        help="A list of the semantic keypoints that you want to learn in each channel. These semantic categories must be defined in the COCO dataset. Seperate the channels with a ; and the categories within a channel with a =",
+        help="A list of the semantic keypoints that you want to learn in each channel. These semantic categories must be defined in the COCO dataset. Seperate the channels with a : and the categories within a channel with a =",
     )
 
     parser.add_argument(
