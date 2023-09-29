@@ -31,6 +31,16 @@ TODO: add integration example.
 - run `wandb login` to set up your wandb account.
 - you are now ready to start training.
 
+
+## Training
+
+To train a keypoint detector,  run the `keypoint-detection train` CLI with the appropriate arguments.
+To create your own configuration: run `keypoint-detection train -h` to see all parameter options and their documentation.
+
+A starting point could be the bash script `bash test/integration_test.sh` to test on the provided test dataset, which contains 4 images. You should see the loss going down consistently until the detector has completely overfit the train set and the loss is around the entropy of the ground truth heatmaps (if you selected the default BCE loss).
+
+Alternatively, you can create a sweep on [wandb](https://wandb.ai) and to then start a (number of) wandb agent(s). This is very useful for running multiple configurations (hparam search, testing on multiple datasets,..)
+
 ## Dataset
 
 This package used the [COCO format](https://cocodataset.org/#format-data) for keypoint annotation and expects a dataset with the following structure:
@@ -48,17 +58,18 @@ If you want to label data, we use[CVAT](https://github.com/opencv/cvat) labeling
 
 It is best to label your data with floats that represent the subpixel location of the keypoints. This allows for more precise resizing of the images later on. The keypoint detector cast them to ints before training to obtain the pixel they belong to (it does not support sub-pixel detections).
 
-## Training
+## Evaluation
+TODO
+`keypoint-detection eval --help`
 
-There are 2 ways to train the keypoint detector:
+## Fiftyone viewer
+TODO
+`scripts/fiftyone_viewer`
 
-- The first is to run the `train.py` script with the appropriate arguments. e.g. from the root folder of this repo, you can run the bash script `bash test/integration_test.sh` to test on the provided test dataset, which contains 4 images. You should see the loss going down consistently until the detector has completely overfit the train set and the loss is around the entropy of the ground truth heatmaps (if you selected the default BCE loss).
+## Using a trained model (Inference)
+During training Pytorch Lightning will have saved checkpoints. See `scripts/checkpoint_inference.py` for a simple example to run inference with a checkpoint.
+For benchmarking the inference (or training), see `scripts/benchmark.py`.
 
-- The second method is to create a sweep on [wandb](https://wandb.ai) and to then start a wandb agent from the correct relative location.
-A minimal sweep example  is given in `test/configuration.py`. The same content should be written to a yaml file according to the wandb format. The sweep can be started by running `wandb agent <sweep-id>` from your CLI.
-
-
-To create your own configuration: run `python train.py -h` to see all parameter options and their documentation.
 
 ## Metrics
 
@@ -81,9 +92,6 @@ We do not use OKS as in COCO for 2 reasons:
 3. (you need to estimate label variance, though you could simply set k=1 and skip this part)
 
 
-## Using a trained model (Inference)
-During training Pytorch Lightning will have saved checkpoints. See `scripts/checkpoint_inference.py` for a simple example to run inference with a checkpoint.
-For benchmarking the inference (or training), see `scripts/benchmark.py`.
 
 ## Development  info
 - formatting and linting is done using [pre-commit](https://pre-commit.com/)

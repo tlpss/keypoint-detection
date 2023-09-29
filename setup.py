@@ -26,4 +26,5 @@ setup(
         "pydantic",
         "fiftyone",
     ],
+    entry_points={"console_scripts": ["keypoint-detection = keypoint_detection.tasks.cli:main"]},
 )

@@ -11,9 +11,12 @@ import tqdm
 from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.metrics import DetectedKeypoint, Keypoint, KeypointAPMetrics
-from keypoint_detection.train.utils import parse_channel_configuration
+from keypoint_detection.tasks.train_utils import parse_channel_configuration
 from keypoint_detection.utils.heatmap import compute_keypoint_probability, get_keypoints_from_heatmap_batch_maxpool
 from keypoint_detection.utils.load_checkpoints import get_model_from_wandb_checkpoint
+
+# TODO: can get channel config from the models! no need to specify manually
+# TODO: mAP / image != mAP, maybe it is also not even the best metric to use for ordering samples .Should also log the loss / image.
 
 
 class DetectorFiftyoneViewer:
@@ -155,7 +158,7 @@ class DetectorFiftyoneViewer:
 
         print(self.fo_dataset)
 
-        session = fo.launch_app(dataset=self.fo_dataset)
+        session = fo.launch_app(dataset=self.fo_dataset, port=5252)
         session = self._configure_session_colors(session)
         session.wait()
 
@@ -220,22 +223,35 @@ class DetectorFiftyoneViewer:
         return sample
 
 
+import cv2
+
+cv2.INTER_LINEAR
 if __name__ == "__main__":
     # TODO: make CLI for this -> hydra config?
     checkpoint_dict = {
         # "maxvit-256-flat": "tlips/synthetic-cloth-keypoints-quest-for-precision/model-5ogj44k0:v0",
         # "maxvit-512-flat": "tlips/synthetic-cloth-keypoints-quest-for-precision/model-1of5e6qs:v0",
-        "maxvit-pyflex-20k": "tlips/synthetic-cloth-keypoints/model-qiellxgb:v0"
+        # "maxvit-pyflex-20k": "tlips/synthetic-cloth-keypoints/model-qiellxgb:v0"
+        # "maxvit-pyflex-512x256": "tlips/synthetic-cloth-keypoints/model-8m3z0wyo:v0",
+        # "maxvit-RTF-512x256" : "tlips/synthetic-cloth-keypoints/model-pzbwimqa:v0",
+        # "maxvit-sim-longer": "tlips/synthetic-cloth-keypoints/model-nvs1pktv:v0",
+        # "rtf-cv2":"tlips/synthetic-cloth-keypoints/model-xvkowjqr:v0",
+        # "rtf-pil":"tlips/synthetic-cloth-keypoints/model-0goi5hc7:v0",
+        # "sim-new-data":"tlips/synthetic-cloth-keypoints/model-axrqhql1:v0",
+        # "sim-40k":"tlips/synthetic-cloth-keypoints/model-yillsdva:v0"
+        # "purple-towel-on-white": "tlips/synthetic-cloth-keypoints-single-towel/model-pw2tsued:v0",
+        "purple-towel-on-white-separate": "tlips/synthetic-cloth-keypoints-single-towel/model-gl39yjtf:v0"
     }
 
-    dataset_path = "/storage/users/tlips/RTFClothes/towels-test_resized_256x256/towels-test.json"
-    dataset_path = (
-        "/home/tlips/Documents/synthetic-cloth-data/synthetic-cloth-data/data/datasets/TOWEL/00/annotations_val.json"
-    )
-    channel_config = "corner0=corner1=corner2=corner3"
+    dataset_path = "/storage/users/tlips/aRTFClothes/towels-test_resized_512x256/towels-test.json"
+    dataset_path = "/home/tlips/Documents/synthetic-cloth-data/synthetic-cloth-data/data/datasets/TOWEL/05-512x256-40k/annotations_val.json"
+    dataset_path = "/home/tlips/Documents/synthetic-cloth-data/synthetic-cloth-data/data/datasets/TOWEL/07-purple-towel-on-white/annotations_val.json"
+    channel_config = "corner0;corner1;corner2;corner3"
     detect_only_visible_keypoints = True
-    n_samples = 50
+    n_samples = 200
     models = {key: get_model_from_wandb_checkpoint(value) for key, value in checkpoint_dict.items()}
-    visualizer = DetectorFiftyoneViewer(dataset_path, models, channel_config, detect_only_visible_keypoints, n_samples)
+    visualizer = DetectorFiftyoneViewer(
+        dataset_path, models, channel_config, detect_only_visible_keypoints, n_samples, ap_threshold_distances=[4]
+    )
     visualizer.predict_and_compute_metrics()
     visualizer.visualize_predictions()

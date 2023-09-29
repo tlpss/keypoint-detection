@@ -70,7 +70,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
 
     from keypoint_detection.data.coco_dataset import COCOKeypointsDataset
-    from keypoint_detection.train.train import parse_channel_configuration
+    from keypoint_detection.tasks.train import parse_channel_configuration
     from keypoint_detection.utils.heatmap import create_heatmap_batch
 
     parser = ArgumentParser()

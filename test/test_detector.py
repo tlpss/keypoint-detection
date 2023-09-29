@@ -10,7 +10,7 @@ from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.backbones.unet import Unet
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.metrics import KeypointAPMetric
-from keypoint_detection.train.utils import create_pl_trainer
+from keypoint_detection.tasks.train_utils import create_pl_trainer
 from keypoint_detection.utils.heatmap import create_heatmap_batch, generate_channel_heatmap
 from keypoint_detection.utils.load_checkpoints import load_from_checkpoint
 from keypoint_detection.utils.path import get_wandb_log_dir_path

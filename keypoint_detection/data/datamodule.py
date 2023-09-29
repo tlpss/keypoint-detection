@@ -31,7 +31,7 @@ class KeypointsDataModule(pl.LightningDataModule):
             "--json_validation_dataset_path",
             type=str,
             help="Absolute path to the json file that defines the validation dataset according to the COCO format. \
-                If not specified, the train dataset will be split to create a validation set.",
+                If not specified, the train dataset will be split to create a validation set if there is one.",
         )
         parser.add_argument(
             "--json_test_dataset_path",
@@ -47,11 +47,11 @@ class KeypointsDataModule(pl.LightningDataModule):
 
     def __init__(
         self,
-        json_dataset_path: str,
         keypoint_channel_configuration: list[list[str]],
-        batch_size: int,
-        validation_split_ratio: float,
-        num_workers: int,
+        batch_size: int = 16,
+        validation_split_ratio: float = 0.25,
+        num_workers: int = 2,
+        json_dataset_path: str = None,
         json_validation_dataset_path: str = None,
         json_test_dataset_path=None,
         augment_train: bool = False,
@@ -62,7 +62,9 @@ class KeypointsDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.augment_train = augment_train
 
-        self.train_dataset = COCOKeypointsDataset(json_dataset_path, keypoint_channel_configuration, **kwargs)
+        self.train_dataset = None
+        if json_dataset_path:
+            self.train_dataset = COCOKeypointsDataset(json_dataset_path, keypoint_channel_configuration, **kwargs)
 
         self.validation_dataset = None
         self.test_dataset = None
@@ -72,10 +74,11 @@ class KeypointsDataModule(pl.LightningDataModule):
                 json_validation_dataset_path, keypoint_channel_configuration, **kwargs
             )
         else:
-            print(f"splitting the train set to create a validation set with ratio {validation_split_ratio} ")
-            self.train_dataset, self.validation_dataset = KeypointsDataModule._split_dataset(
-                self.train_dataset, validation_split_ratio
-            )
+            if self.train_dataset is not None:
+                print(f"splitting the train set to create a validation set with ratio {validation_split_ratio} ")
+                self.train_dataset, self.validation_dataset = KeypointsDataModule._split_dataset(
+                    self.train_dataset, validation_split_ratio
+                )
 
         if json_test_dataset_path:
             self.test_dataset = COCOKeypointsDataset(json_test_dataset_path, keypoint_channel_configuration, **kwargs)
@@ -88,9 +91,13 @@ class KeypointsDataModule(pl.LightningDataModule):
             train_transform = MultiChannelKeypointsCompose(
                 [
                     A.ColorJitter(p=0.8),
+                    A.RandomBrightnessContrast(p=0.8),
                     A.RandomResizedCrop(
                         img_height, img_width, scale=(0.8, 1.0), ratio=(0.9 * aspect_ratio, 1.1 * aspect_ratio), p=1.0
                     ),
+                    A.GaussianBlur(p=0.2, blur_limit=(3, 3)),
+                    A.Sharpen(p=0.2),
+                    A.GaussNoise(),
                 ]
             )
             if isinstance(self.train_dataset, COCOKeypointsDataset):
@@ -116,6 +123,9 @@ class KeypointsDataModule(pl.LightningDataModule):
         # but PL does for us in their seeding function:
         # https://lightning.ai/docs/pytorch/stable/common/trainer.html#reproducibility
 
+        if self.train_dataset is None:
+            return None
+
         dataloader = DataLoader(
             self.train_dataset,
             self.batch_size,
@@ -132,6 +142,9 @@ class KeypointsDataModule(pl.LightningDataModule):
         # but PL does for us in their seeding function:
         # https://lightning.ai/docs/pytorch/stable/common/trainer.html#reproducibility
 
+        if self.validation_dataset is None:
+            return None
+
         dataloader = DataLoader(
             self.validation_dataset,
             self.batch_size,
@@ -142,6 +155,9 @@ class KeypointsDataModule(pl.LightningDataModule):
         return dataloader
 
     def test_dataloader(self):
+
+        if self.test_dataset is None:
+            return None
         dataloader = DataLoader(
             self.test_dataset,
             min(4, self.batch_size),  # 4 as max for better visualization in wandb.

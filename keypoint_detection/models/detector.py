@@ -327,7 +327,7 @@ class KeypointDetector(pl.LightningModule):
             self.update_ap_metrics(result_dict, self.ap_validation_metrics)
 
             log_images = batch_idx == 0 and self.current_epoch > 0 and self.is_ap_epoch()
-            if log_images:
+            if log_images and isinstance(self.logger, pl.loggers.wandb.WandbLogger):
                 image_grids = self.visualize_predictions_channels(result_dict)
                 self.log_image_grids(image_grids, mode="validation")
 
@@ -340,7 +340,7 @@ class KeypointDetector(pl.LightningModule):
         result_dict = self.shared_step(test_batch, batch_idx, include_visualization_data_in_result_dict=True)
         self.update_ap_metrics(result_dict, self.ap_test_metrics)
         # only log first 10 batches to reduce storage space
-        if batch_idx < 10:
+        if batch_idx < 10 and isinstance(self.logger, pl.loggers.wandb.WandbLogger):
             image_grids = self.visualize_predictions_channels(result_dict)
             self.log_image_grids(image_grids, mode="test")
         self.log("test/epoch_loss", result_dict["loss"])

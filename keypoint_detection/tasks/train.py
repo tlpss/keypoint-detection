@@ -1,3 +1,4 @@
+"""train detector based on argparse configuration"""
 from argparse import ArgumentParser
 from typing import Tuple
 
@@ -9,7 +10,7 @@ from pytorch_lightning.trainer.trainer import Trainer
 from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
-from keypoint_detection.train.utils import create_pl_trainer, parse_channel_configuration
+from keypoint_detection.tasks.train_utils import create_pl_trainer, parse_channel_configuration
 from keypoint_detection.utils.path import get_wandb_log_dir_path
 
 
@@ -52,7 +53,7 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
     return parent_parser
 
 
-def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
+def train(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     """
     Initializes the datamodule, model and trainer based on the global hyperparameters.
     calls trainer.fit(model, module) afterwards and returns both model and trainer.
@@ -61,21 +62,7 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     pl.seed_everything(hparams["seed"], workers=True)
 
     # use deterministic algorithms for torch to ensure exact reproducibility
-    # https://pytorch.org/docs/stable/notes/randomness.html#reproducibility
-    # this can slow down training
-    # but the impact is limited in my experience.
-    # so I prefer to be deterministic (and hence reproducible) by default.
-
-    # also note that following is not enough:
-    # torch.backends.cudnn.deterministic = True
-    # there are other non-deterministic algorithms
-    # cf list at https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html#torch.use_deterministic_algorithms
-
-    # the following is still not good enough with Pytorch-Lightning:
-    # import torch
-    # torch.use_deterministic_algorithms(True)
-    # though I am not exactly sure why.
-    # so we have to set it in the trainer! (see create_pl_trainer)
+    # we have to set it in the trainer! (see create_pl_trainer)
 
     backbone = BackboneFactory.create_backbone(**hparams)
     model = KeypointDetector(backbone=backbone, **hparams)
@@ -105,7 +92,7 @@ def main(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
     return model, trainer
 
 
-if __name__ == "__main__":
+def train_cli():
     """
     1. creates argumentparser with Model, Trainer and system paramaters; which can be used to overwrite default parameters
     when running python train.py --<param> <param_value>
@@ -145,4 +132,8 @@ if __name__ == "__main__":
     print(f" config after wandb init: {hparams}")
 
     print("starting training")
-    main(hparams)
+    train(hparams)
+
+
+if __name__ == "__main__":
+    train_cli()
