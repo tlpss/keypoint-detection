@@ -132,8 +132,8 @@ def calculate_precision_recall(
         else:
             false_positives += 1
 
-        precision.append(true_positives / (true_positives + false_positives))
-        recall.append(true_positives / total_ground_truth_keypoints)
+        precision.append(_zero_aware_division(true_positives, (true_positives + false_positives)))
+        recall.append(_zero_aware_division(true_positives, total_ground_truth_keypoints))
 
     precision.append(0.0)
     recall.append(1.0)
@@ -228,6 +228,15 @@ class KeypointAPMetrics(Metric):
     def reset(self) -> None:
         for metric in self.ap_metrics:
             metric.reset()
+
+
+def _zero_aware_division(num: float, denom: float) -> float:
+    if num == 0:
+        return 0
+    if denom == 0 and num != 0:
+        return float("inf")
+    else:
+        return num / denom
 
 
 if __name__ == "__main__":
