@@ -1,11 +1,27 @@
 from argparse import ArgumentParser
-from typing import List
+from typing import List, Tuple
 
+import numpy as np
 import torch
 import torchvision
 from matplotlib import cm
+from PIL import Image, ImageDraw, ImageFont
 
 from keypoint_detection.utils.heatmap import generate_channel_heatmap
+
+
+def get_logging_label_from_channel_configuration(channel_configuration: List[List[str]], mode: str) -> str:
+    channel_name = channel_configuration
+
+    if isinstance(channel_configuration, list):
+        if len(channel_configuration) == 1:
+            channel_name = channel_configuration[0]
+        else:
+            channel_name = f"{channel_configuration[0]}+{channel_configuration[1]}+..."
+
+    channel_name_short = (channel_name[:40] + "...") if len(channel_name) > 40 else channel_name
+    label = f"{channel_name_short}_{mode}"
+    return label
 
 
 def overlay_image_with_heatmap(images: torch.Tensor, heatmaps: torch.Tensor, alpha=0.5) -> torch.Tensor:
@@ -19,7 +35,22 @@ def overlay_image_with_heatmap(images: torch.Tensor, heatmaps: torch.Tensor, alp
     return overlayed_images
 
 
-def overlay_image_with_keypoints(images: torch.Tensor, keypoints: List[torch.Tensor], sigma: float) -> torch.Tensor:
+def visualize_predicted_heatmaps(
+    imgs: torch.Tensor,
+    predicted_heatmaps: torch.Tensor,
+    gt_heatmaps: torch.Tensor,
+):
+    num_images = min(predicted_heatmaps.shape[0], 6)
+
+    predicted_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], predicted_heatmaps[:num_images])
+    gt_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], gt_heatmaps[:num_images])
+
+    images = torch.cat([predicted_heatmap_overlays, gt_heatmap_overlays])
+    grid = torchvision.utils.make_grid(images, nrow=num_images)
+    return grid
+
+
+def overlay_images_with_keypoints(images: torch.Tensor, keypoints: List[torch.Tensor], sigma: float) -> torch.Tensor:
     """
     images N x 3 x H x W
     keypoints list of size N with Tensors C x 2
@@ -49,18 +80,58 @@ def overlay_image_with_keypoints(images: torch.Tensor, keypoints: List[torch.Ten
     return overlayed_images
 
 
-def visualize_predicted_heatmaps(
-    imgs: torch.Tensor,
-    predicted_heatmaps: torch.Tensor,
-    gt_heatmaps: torch.Tensor,
+def draw_keypoints_on_image(
+    image: Image, image_keypoints: List[List[Tuple[int, int]]], channel_configuration: List[List[str]]
+) -> Image:
+    """adds all keypoints to the PIL image, with different colors for each channel."""
+    color_pool = [
+        "#FF00FF",  # Neon Purple
+        "#00FF00",  # Electric Green
+        "#FFFF00",  # Cyber Yellow
+        "#0000FF",  # Laser Blue
+        "#FF0000",  # Radioactive Red
+        "#00FFFF",  # Galactic Teal
+        "#FF00AA",  # Quantum Pink
+        "#C0C0C0",  # Holographic Silver
+        "#000000",  # Abyssal Black
+        "#FFA500",  # Cosmic Orange
+    ]
+    image_size = image.size
+    min_size = min(image_size)
+    scale = 1 + (min_size // 256)
+
+    draw = ImageDraw.Draw(image)
+    for channel_idx, channel_keypoints in enumerate(image_keypoints):
+        for keypoint_idx, keypoint in enumerate(channel_keypoints):
+            u, v = keypoint
+            draw.ellipse((u - scale, v - scale, u + scale, v + scale), fill=color_pool[channel_idx])
+
+        draw.text(
+            (10, channel_idx * 10 * scale),
+            get_logging_label_from_channel_configuration(channel_configuration[channel_idx], "").split("_")[0],
+            fill=color_pool[channel_idx],
+            font=ImageFont.truetype("FreeMono.ttf", size=10 * scale),
+        )
+
+    return image
+
+
+def visualize_predicted_keypoints(
+    images: torch.Tensor, keypoints: List[List[List[List[int]]]], channel_configuration: List[List[str]]
 ):
-    num_images = min(predicted_heatmaps.shape[0], 6)
+    drawn_images = []
+    num_images = min(images.shape[0], 6)
+    for i in range(num_images):
+        # PIL expects uint8 images
+        image = images[i].permute(1, 2, 0).numpy() * 255
+        image = image.astype(np.uint8)
+        image = Image.fromarray(image)
+        image = draw_keypoints_on_image(image, keypoints[i], channel_configuration)
+        drawn_images.append(image)
 
-    predicted_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], predicted_heatmaps[:num_images])
-    gt_heatmap_overlays = overlay_image_with_heatmap(imgs[:num_images], gt_heatmaps[:num_images])
+    drawn_images = torch.stack([torch.from_numpy(np.array(image)).permute(2, 0, 1) / 255 for image in drawn_images])
 
-    images = torch.cat([predicted_heatmap_overlays, gt_heatmap_overlays])
-    grid = torchvision.utils.make_grid(images, nrow=num_images)
+    grid = torchvision.utils.make_grid(drawn_images, nrow=num_images)
     return grid
 
 

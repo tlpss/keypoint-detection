@@ -10,7 +10,11 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.metrics import DetectedKeypoint, Keypoint, KeypointAPMetrics
 from keypoint_detection.utils.heatmap import BCE_loss, create_heatmap_batch, get_keypoints_from_heatmap_batch_maxpool
-from keypoint_detection.utils.visualization import visualize_predicted_heatmaps
+from keypoint_detection.utils.visualization import (
+    get_logging_label_from_channel_configuration,
+    visualize_predicted_heatmaps,
+    visualize_predicted_keypoints,
+)
 
 
 class KeypointDetector(pl.LightningModule):
@@ -266,7 +270,7 @@ class KeypointDetector(pl.LightningModule):
 
         if log_images:
             image_grids = self.visualize_predictions_channels(result_dict)
-            self.log_image_grids(image_grids, mode="train")
+            self.log_channel_predictions_grids(image_grids, mode="train")
 
         for channel_name in self.keypoint_channel_configuration:
             self.log(f"train/{channel_name}", result_dict[f"{channel_name}_loss"])
@@ -299,25 +303,28 @@ class KeypointDetector(pl.LightningModule):
             image_grids.append(grid)
         return image_grids
 
-    @staticmethod
-    def logging_label(channel_configuration, mode: str) -> str:
-        channel_name = channel_configuration
-
-        if isinstance(channel_configuration, list):
-            if len(channel_configuration) == 1:
-                channel_name = channel_configuration[0]
-            else:
-                channel_name = f"{channel_configuration[0]}+{channel_configuration[1]}+..."
-
-        channel_name_short = (channel_name[:40] + "...") if len(channel_name) > 40 else channel_name
-        label = f"{channel_name_short}_{mode}_keypoints"
-        return label
-
-    def log_image_grids(self, image_grids, mode: str):
+    def log_channel_predictions_grids(self, image_grids, mode: str):
         for channel_configuration, grid in zip(self.keypoint_channel_configuration, image_grids):
-            label = KeypointDetector.logging_label(channel_configuration, mode)
+            label = get_logging_label_from_channel_configuration(channel_configuration, mode)
             image_caption = "top: predicted heatmaps, bottom: gt heatmaps"
             self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
+
+    def visualize_predicted_keypoints(self, result_dict):
+        images = result_dict["input_images"]
+        predicted_heatmaps = result_dict["predicted_heatmaps"]
+        # get the keypoints from the heatmaps
+        predicted_heatmaps = predicted_heatmaps.detach().float()
+        predicted_keypoints = get_keypoints_from_heatmap_batch_maxpool(
+            predicted_heatmaps, self.max_keypoints, self.minimal_keypoint_pixel_distance, abs_max_threshold=0.4
+        )
+        # overlay the images with the keypoints
+        grid = visualize_predicted_keypoints(images, predicted_keypoints, self.keypoint_channel_configuration)
+        return grid
+
+    def log_predicted_keypoints(self, grid, mode=str):
+        label = f"predicted_keypoints_{mode}"
+        image_caption = "predicted keypoints"
+        self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
 
     def validation_step(self, val_batch, batch_idx):
         # no need to switch model to eval mode, this is handled by pytorch lightning
@@ -328,8 +335,11 @@ class KeypointDetector(pl.LightningModule):
 
             log_images = batch_idx == 0 and self.current_epoch > 0 and self.is_ap_epoch()
             if log_images and isinstance(self.logger, pl.loggers.wandb.WandbLogger):
-                image_grids = self.visualize_predictions_channels(result_dict)
-                self.log_image_grids(image_grids, mode="validation")
+                channel_grids = self.visualize_predictions_channels(result_dict)
+                self.log_channel_predictions_grids(channel_grids, mode="validation")
+
+                keypoint_grids = self.visualize_predicted_keypoints(result_dict)
+                self.log_predicted_keypoints(keypoint_grids, mode="validation")
 
         ## log (defaults to on_epoch, which aggregates the logged values over entire validation set)
         self.log("validation/epoch_loss", result_dict["loss"])
@@ -342,7 +352,11 @@ class KeypointDetector(pl.LightningModule):
         # only log first 10 batches to reduce storage space
         if batch_idx < 10 and isinstance(self.logger, pl.loggers.wandb.WandbLogger):
             image_grids = self.visualize_predictions_channels(result_dict)
-            self.log_image_grids(image_grids, mode="test")
+            self.log_channel_predictions_grids(image_grids, mode="test")
+
+            keypoint_grids = self.visualize_predicted_keypoints(result_dict)
+            self.log_predicted_keypoints(keypoint_grids, mode="validation")
+
         self.log("test/epoch_loss", result_dict["loss"])
         self.log("test/gt_loss", result_dict["gt_loss"])
 
