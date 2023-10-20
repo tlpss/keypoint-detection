@@ -20,7 +20,10 @@ def get_logging_label_from_channel_configuration(channel_configuration: List[Lis
             channel_name = f"{channel_configuration[0]}+{channel_configuration[1]}+..."
 
     channel_name_short = (channel_name[:40] + "...") if len(channel_name) > 40 else channel_name
-    label = f"{channel_name_short}_{mode}"
+    if mode != "":
+        label = f"{channel_name_short}_{mode}"
+    else:
+        label = channel_name_short
     return label
 
 
@@ -108,7 +111,7 @@ def draw_keypoints_on_image(
 
         draw.text(
             (10, channel_idx * 10 * scale),
-            get_logging_label_from_channel_configuration(channel_configuration[channel_idx], "").split("_")[0],
+            get_logging_label_from_channel_configuration(channel_configuration[channel_idx], ""),
             fill=color_pool[channel_idx],
             font=ImageFont.truetype("FreeMono.ttf", size=10 * scale),
         )

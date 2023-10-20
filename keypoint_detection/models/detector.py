@@ -315,7 +315,7 @@ class KeypointDetector(pl.LightningModule):
         # get the keypoints from the heatmaps
         predicted_heatmaps = predicted_heatmaps.detach().float()
         predicted_keypoints = get_keypoints_from_heatmap_batch_maxpool(
-            predicted_heatmaps, self.max_keypoints, self.minimal_keypoint_pixel_distance, abs_max_threshold=0.2
+            predicted_heatmaps, self.max_keypoints, self.minimal_keypoint_pixel_distance, abs_max_threshold=0.1
         )
         # overlay the images with the keypoints
         grid = visualize_predicted_keypoints(images, predicted_keypoints, self.keypoint_channel_configuration)
