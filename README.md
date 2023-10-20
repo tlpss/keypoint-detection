@@ -37,9 +37,13 @@ TODO: add integration example.
 To train a keypoint detector,  run the `keypoint-detection train` CLI with the appropriate arguments.
 To create your own configuration: run `keypoint-detection train -h` to see all parameter options and their documentation.
 
-A starting point could be the bash script `bash test/integration_test.sh` to test on the provided test dataset, which contains 4 images. You should see the loss going down consistently until the detector has completely overfit the train set and the loss is around the entropy of the ground truth heatmaps (if you selected the default BCE loss).
+A good starting point could be the bash script `bash test/integration_test.sh` to test on the provided test dataset, which contains 4 images. You should see the loss going down consistently until the detector has completely overfit the train set and the loss is around the entropy of the ground truth heatmaps (if you selected the default BCE loss).
 
+### Wandb sweeps
 Alternatively, you can create a sweep on [wandb](https://wandb.ai) and to then start a (number of) wandb agent(s). This is very useful for running multiple configurations (hparam search, testing on multiple datasets,..)
+
+### Loading pretrained weights
+If you want to load pretrained keypoint detector weights, you can specify the wandb artifact of the checkpoint in the training parameters: `keypoint-detection train ..... -wandb_checkpoint_artifact <artifact-path>`. This can be used for example to finetune on real data after pretraining on synthetic data.
 
 ## Dataset
 
@@ -48,7 +52,7 @@ This package used the [COCO format](https://cocodataset.org/#format-data) for ke
 dataset/
   images/
     ...
-  <name>.json : a COCO-formatted keypoint annotation file.
+  <name>.json : a COCO-formatted keypoint annotation file with filepaths relative to its parent directory.
 ```
 For an example, see the `test_dataset` at `test/test_dataset`.
 
@@ -66,7 +70,7 @@ TODO
 TODO
 `scripts/fiftyone_viewer`
 
-## Using a trained model (Inference)
+## Using a trained model for  Inference
 During training Pytorch Lightning will have saved checkpoints. See `scripts/checkpoint_inference.py` for a simple example to run inference with a checkpoint.
 For benchmarking the inference (or training), see `scripts/benchmark.py`.
 
@@ -86,7 +90,7 @@ In general a lower threshold will result in a lower metric. The size of this gap
 #TODO: add a figure to illustrate this.
 
 
-We do not use OKS as in COCO for 2 reasons:
+We do not use OKS as in COCO for the following reasons:
 1. it requires bbox annotations, which are not always required for keypoint detection itself and represent additional label effort.
 2. More importantly, in robotics the size of an object does not always correlate with the required precision. If a large and a small mug stand on a table, they require the same precise localisation of keypoints for a robot to grasp them even though their apparent size is different.
 3. (you need to estimate label variance, though you could simply set k=1 and skip this part)

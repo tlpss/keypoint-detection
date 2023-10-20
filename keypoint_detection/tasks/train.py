@@ -11,6 +11,7 @@ from keypoint_detection.data.datamodule import KeypointsDataModule
 from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.tasks.train_utils import create_pl_trainer, parse_channel_configuration
+from keypoint_detection.utils.load_checkpoints import get_model_from_wandb_checkpoint
 from keypoint_detection.utils.path import get_wandb_log_dir_path
 
 
@@ -49,6 +50,12 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
         help="do not use deterministic algorithms for pytorch. This can speed up training, but will make it non-reproducible.",
     )
 
+    parser.add_argument(
+        "--wandb_checkpoint_artifact",
+        type=str,
+        help="A checkpoint to resume/start training from. keep in mind that you currently cannot specify hyperparameters other than the LR.",
+        required=False,
+    )
     parser.set_defaults(deterministic=True)
     return parent_parser
 
@@ -63,9 +70,18 @@ def train(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
 
     # use deterministic algorithms for torch to ensure exact reproducibility
     # we have to set it in the trainer! (see create_pl_trainer)
+    if "wandb_checkpoint_artifact" in hparams.keys():
+        print("Loading checkpoint from wandb")
+        # This will create a KeypointDetector model with the associated hyperparameters.
+        # Model weights will be loaded.
+        # Optimizer and LR scheduler will be initiated from scratch" (if you want to really resume training, you have to pass the ckeckpoint to the trainer)
+        # cf. https://lightning.ai/docs/pytorch/latest/common/checkpointing_basic.html#lightningmodule-from-checkpoint
+        model = get_model_from_wandb_checkpoint(hparams["wandb_checkpoint_artifact"])
+        # TODO: how can specific hparams be overwritten here? e.g. LR reduction for finetuning or something?
+    else:
+        backbone = BackboneFactory.create_backbone(**hparams)
+        model = KeypointDetector(backbone=backbone, **hparams)
 
-    backbone = BackboneFactory.create_backbone(**hparams)
-    model = KeypointDetector(backbone=backbone, **hparams)
     data_module = KeypointsDataModule(**hparams)
     wandb_logger = WandbLogger(
         project=hparams["wandb_project"],
