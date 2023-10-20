@@ -1,6 +1,8 @@
 """run evaluation on a model for the given dataset"""
 
 
+import argparse
+
 import pytorch_lightning as pl
 import torch
 
@@ -49,10 +51,10 @@ def eval_cli():
 
 
 if __name__ == "__main__":
-    import argparse
 
     wandb_checkpoint = "tlips/synthetic-cloth-keypoints-single-towel/model-gl39yjtf:v0"
     test_json_path = "/home/tlips/Documents/synthetic-cloth-data/synthetic-cloth-data/data/datasets/TOWEL/07-purple-towel-on-white/annotations_val.json"
+    test_json_path = "/storage/users/tlips/aRTFClothes/cloth-on-white/purple-towel-on-white_resized_512x256/purple-towel-on-white.json"
     model = get_model_from_wandb_checkpoint(wandb_checkpoint)
     data_module = KeypointsDataModule(
         model.keypoint_channel_configuration, json_test_dataset_path=test_json_path, batch_size=8
