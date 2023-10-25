@@ -257,7 +257,7 @@ class KeypointDetector(pl.LightningModule):
         return result_dict
 
     def training_step(self, train_batch, batch_idx):
-        log_images = batch_idx == 0 and self.current_epoch > 0
+        log_images = batch_idx == 0 and self.current_epoch > 0 and self.is_ap_epoch()
         should_log_ap = self.is_ap_epoch() and batch_idx < 20  # limit AP calculation to first 20 batches to save time
         include_vis_data = log_images or should_log_ap
 
