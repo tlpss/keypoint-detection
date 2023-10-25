@@ -100,10 +100,6 @@ class TestModel(unittest.TestCase):
         self.assertTrue(torch.mean(heatmap).item() < 0.1)
         self.assertTrue(torch.var(heatmap).item() < 0.1)
 
-    # TODO: chcek if we can run it on gh actions as well.
-    IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
-
-    # @pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions atm")
     def test_checkpoint_loading(self):
         wandb_logger = WandbLogger(dir=get_wandb_log_dir_path(), mode="offline")
 
