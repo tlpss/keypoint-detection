@@ -1,5 +1,5 @@
 import inspect
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl
 import torch
@@ -82,7 +82,21 @@ def create_pl_trainer(hparams: dict, wandb_logger: WandbLogger) -> Trainer:
     )
     # cf https://pytorch-lightning.readthedocs.io/en/latest/api/pytorch_lightning.loggers.wandb.html
 
-    checkpoint_callback = ModelCheckpoint(monitor="validation/epoch_loss", mode="min")
+    # would be better to use mAP metric for checkpointing, but this is not calculated every epoch because it is rather expensive
+    # epoch_loss still correlates rather well though
+    # only store the best checkpoint and only the weights
+    # so cannot be used to resume training but only for inference
+    # saves storage though and training the detector is usually cheap enough to retrain it from scratch if you need specific weights etc.
+    checkpoint_callback = ModelCheckpoint(
+        monitor="validation/epoch_loss", mode="min", save_weights_only=True, save_top_k=1
+    )
 
     trainer = pl.Trainer(**trainer_kwargs, callbacks=[early_stopping, checkpoint_callback])
     return trainer
+
+
+def parse_channel_configuration(channel_configuration: str) -> List[List[str]]:
+    assert isinstance(channel_configuration, str)
+    channels = channel_configuration.split(":")
+    channels = [[category.strip() for category in channel.split("=")] for channel in channels]
+    return channels

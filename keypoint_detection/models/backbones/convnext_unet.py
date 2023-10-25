@@ -24,28 +24,28 @@ class UpSamplingBlock(nn.Module):
 
     def __init__(self, n_channels_in, n_skip_channels_in, n_channels_out, kernel_size):
         super().__init__()
-        self.upsample = nn.UpsamplingBilinear2d(scale_factor=2)
-        self.conv_reduce = nn.Conv2d(
-            in_channels=n_channels_in, out_channels=n_skip_channels_in, kernel_size=1, bias=False, padding="same"
-        )
-        self.conv = nn.Conv2d(
-            in_channels=n_skip_channels_in * 2,
+
+        self.conv1 = nn.Conv2d(
+            in_channels=n_skip_channels_in + n_channels_in,
             out_channels=n_channels_out,
             kernel_size=kernel_size,
             bias=False,
             padding="same",
         )
-        self.norm = nn.BatchNorm2d(n_channels_out)
-        self.relu = nn.ReLU()
+
+        self.norm1 = nn.BatchNorm2d(n_channels_out)
+        self.relu1 = nn.ReLU()
 
     def forward(self, x, x_skip):
-        x = self.upsample(x)
-        x = self.conv_reduce(x)
+        # bilinear is not deterministic, use nearest neighbor instead
+        x = nn.functional.interpolate(x, scale_factor=2.0)
         x = torch.cat([x, x_skip], dim=1)
-        x = self.conv(x)
-        x = self.norm(x)
-        x = self.relu(x)
+        x = self.conv1(x)
+        x = self.norm1(x)
+        x = self.relu1(x)
 
+        # second conv as in original UNet upsampling block decreases performance
+        # probably because I was using a small dataset that did not have enough data to learn the extra parameters
         return x
 
 
@@ -60,12 +60,13 @@ class ConvNeXtUnet(Backbone):
     nano -> 17M params (but only twice as slow)
 
 
-                                        (head)
-    stem                              final_up (bilinear 4x)
-        res1         --->   1/4      decode3
-            res2     --->   1/8    decode2
-                res3 --->   1/16  decode1
-                    res4 ---1/32----|
+    input                                                   final_conv --- head
+        stem                                            upsampling
+                                                    upsamping
+            res1         --->   1/4             decode3
+                res2     --->   1/8         decode2
+                    res3 --->   1/16    decode1
+                        res4 ---1/32----|
     """
 
     def __init__(self, **kwargs):
@@ -82,17 +83,18 @@ class ConvNeXtUnet(Backbone):
             block = UpSamplingBlock(channels_in, skip_channels_in, skip_channels_in, 3)
             self.decoder_blocks.append(block)
 
-        self.final_upsampling_block = nn.Sequential(
-            nn.UpsamplingBilinear2d(scale_factor=4), nn.Conv2d(skip_channels_in, skip_channels_in, 3, padding="same")
-        )
+        self.final_conv = nn.Conv2d(skip_channels_in + 3, skip_channels_in, 3, padding="same")
 
     def forward(self, x):
+        x_orig = torch.clone(x)
         features = self.encoder(x)
 
         x = features.pop()
         for block in self.decoder_blocks:
             x = block(x, features.pop())
-        x = self.final_upsampling_block(x)
+        x = nn.functional.interpolate(x, scale_factor=4.0)
+        x = torch.cat([x, x_orig], dim=1)
+        x = self.final_conv(x)
         return x
 
     def get_n_channels_out(self):

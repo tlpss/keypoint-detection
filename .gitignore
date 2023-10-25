@@ -4,8 +4,10 @@
 .vscode/**
 
 datasets/
+scripts/dummy_dataset/
 **wandb/
 lightning_logs**
 **.ckpt
 
 **/checkpoints/
+build/**

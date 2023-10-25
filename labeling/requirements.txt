@@ -1,3 +1,0 @@
-xmltodict
-pydantic
-tqdm

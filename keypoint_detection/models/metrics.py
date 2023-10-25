@@ -43,17 +43,17 @@ class ClassifiedKeypoint(DetectedKeypoint):
     unsafe_hash -> dirty fix to allow for hash w/o explictly telling python the object is immutable.
     """
 
-    threshold_distance: float
+    threshold_distance: int
     true_positive: bool
 
 
 def keypoint_classification(
     detected_keypoints: List[DetectedKeypoint],
     ground_truth_keypoints: List[Keypoint],
-    threshold_distance: float,
+    threshold_distance: int,
 ) -> List[ClassifiedKeypoint]:
     """Classifies keypoints of a **single** frame in True Positives or False Positives by searching for unused gt keypoints in prediction probability order
-    that are within distance d of the detected keypoint.
+    that are within distance d of the detected keypoint (greedy matching).
 
     Args:
         detected_keypoints (List[DetectedKeypoint]): The detected keypoints in the frame
@@ -73,7 +73,8 @@ def keypoint_classification(
         matched = False
         for gt_keypoint in ground_truth_keypoints:
             distance = detected_keypoint.l2_distance(gt_keypoint)
-            if distance < threshold_distance:
+            # add small epsilon to avoid numerical errors
+            if distance <= threshold_distance + 1e-5:
                 classified_keypoint = ClassifiedKeypoint(
                     detected_keypoint.u,
                     detected_keypoint.v,
@@ -131,8 +132,8 @@ def calculate_precision_recall(
         else:
             false_positives += 1
 
-        precision.append(true_positives / (true_positives + false_positives))
-        recall.append(true_positives / total_ground_truth_keypoints)
+        precision.append(_zero_aware_division(true_positives, (true_positives + false_positives)))
+        recall.append(_zero_aware_division(true_positives, total_ground_truth_keypoints))
 
     precision.append(0.0)
     recall.append(1.0)
@@ -209,7 +210,7 @@ class KeypointAPMetrics(Metric):
 
     full_state_update = False
 
-    def __init__(self, keypoint_threshold_distances: List[float], dist_sync_on_step=False):
+    def __init__(self, keypoint_threshold_distances: List[int], dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.ap_metrics = [KeypointAPMetric(dst, dist_sync_on_step) for dst in keypoint_threshold_distances]
@@ -227,6 +228,15 @@ class KeypointAPMetrics(Metric):
     def reset(self) -> None:
         for metric in self.ap_metrics:
             metric.reset()
+
+
+def _zero_aware_division(num: float, denom: float) -> float:
+    if num == 0:
+        return 0
+    if denom == 0 and num != 0:
+        return float("inf")
+    else:
+        return num / denom
 
 
 if __name__ == "__main__":

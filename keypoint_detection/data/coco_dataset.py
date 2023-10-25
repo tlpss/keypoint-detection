@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import typing
 from collections import defaultdict
 from pathlib import Path
@@ -42,21 +43,23 @@ class COCOKeypointsDataset(ImageDataset):
         """
         parser = parent_parser.add_argument_group("COCOkeypointsDataset")
         parser.add_argument(
-            "--detect_non_visible_keypoints",
-            default=True,
-            type=str,
-            help="detect keypoints with visibility flag = 1? default = True",
+            "--detect_only_visible_keypoints",
+            dest="detect_only_visible_keypoints",
+            default=False,
+            action="store_true",
+            help="If set, only keypoints with flag > 1.0 will be used.",
         )
+
         return parent_parser
 
     def __init__(
         self,
         json_dataset_path: str,
         keypoint_channel_configuration: list[list[str]],
-        detect_non_visible_keypoints: bool = True,
+        detect_only_visible_keypoints: bool = True,
         transform: A.Compose = None,
         imageloader: ImageLoader = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(imageloader)
 
@@ -65,7 +68,9 @@ class COCOKeypointsDataset(ImageDataset):
         self.dataset_dir_path = self.dataset_json_path.parent  # assume paths in JSON are relative to this directory!
 
         self.keypoint_channel_configuration = keypoint_channel_configuration
-        self.detect_non_visible_keypoints = detect_non_visible_keypoints
+        self.detect_only_visible_keypoints = detect_only_visible_keypoints
+
+        print(f"{detect_only_visible_keypoints=}")
 
         self.random_crop_transform = None
         self.transform = transform
@@ -88,6 +93,9 @@ class COCOKeypointsDataset(ImageDataset):
 
         image_path = self.dataset_dir_path / self.dataset[index][0]
         image = self.image_loader.get_image(str(image_path), index)
+        # remove a-channel if needed
+        if image.shape[2] == 4:
+            image = image[..., :3]
 
         keypoints = self.dataset[index][1]
 
@@ -95,6 +103,17 @@ class COCOKeypointsDataset(ImageDataset):
             transformed = self.transform(image=image, keypoints=keypoints)
             image, keypoints = transformed["image"], transformed["keypoints"]
 
+        # convert all keypoints to integers values.
+        # COCO keypoints can be floats if they specify the exact location of the keypoint (e.g. from CVAT)
+        # even though COCO format specifies zero-indexed integers (i.e. every keypoint in the [0,1]x [0.1] pixel box becomes (0,0)
+        # we convert them to ints here, as the heatmap generation will add a 0.5 offset to the keypoint location to center it in the pixel
+        # the distance metrics also operate on integer values.
+
+        # so basically from here on every keypoint is an int that represents the pixel-box in which the keypoint is located.
+        keypoints = [
+            [[math.floor(keypoint[0]), math.floor(keypoint[1])] for keypoint in channel_keypoints]
+            for channel_keypoints in keypoints
+        ]
         image = self.image_to_tensor_transform(image)
         return image, keypoints
 
@@ -169,10 +188,12 @@ class COCOKeypointsDataset(ImageDataset):
         Returns:
             bool: True if current keypoint is considered visible according to the dataset configuration, else False
         """
-        minimal_flag = 0
-        if not self.detect_non_visible_keypoints:
-            minimal_flag = 1
-        return keypoint[2] > minimal_flag
+        if self.detect_only_visible_keypoints:
+            # filter out occluded keypoints with flag 1.0
+            return keypoint[2] > 1.5
+        else:
+            # filter out non-labeled keypoints with flag 0.0
+            return keypoint[2] > 0.5
 
     @staticmethod
     def split_list_in_keypoints(list_to_split: List[COCO_KEYPOINT_TYPE]) -> List[List[COCO_KEYPOINT_TYPE]]:

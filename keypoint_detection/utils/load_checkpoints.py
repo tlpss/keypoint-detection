@@ -15,14 +15,17 @@ def get_model_from_wandb_checkpoint(checkpoint_reference: str):
     import wandb
 
     # download checkpoint locally (if not already cached)
-    run = wandb.init(project="inference")
+    if wandb.run is None:
+        run = wandb.init(project="inference")
+    else:
+        run = wandb.run
     artifact = run.use_artifact(checkpoint_reference, type="model")
     artifact_dir = artifact.download()
     checkpoint_path = Path(artifact_dir) / "model.ckpt"
     return load_from_checkpoint(checkpoint_path)
 
 
-def load_from_checkpoint(checkpoint_path: str):
+def load_from_checkpoint(checkpoint_path: str, hparams_to_override: dict = None):
     """
     function to load a Keypoint Detector model from a local pytorch lightning checkpoint.
 
@@ -43,3 +46,8 @@ def load_from_checkpoint(checkpoint_path: str):
     backbone = BackboneFactory.create_backbone(**checkpoint["hyper_parameters"])
     model = KeypointDetector.load_from_checkpoint(checkpoint_path, backbone=backbone)
     return model
+
+
+if __name__ == "__main__":
+    model = get_model_from_wandb_checkpoint("tlips/synthetic-cloth-keypoints-tshirts/model-4um302zo:v0")
+    print(model.hparams)

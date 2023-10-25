@@ -1,6 +1,7 @@
 import os
 import unittest
 
+import pytest
 import torch
 from pytorch_lightning.loggers import WandbLogger
 from torch import nn
@@ -10,7 +11,7 @@ from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.backbones.unet import Unet
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.models.metrics import KeypointAPMetric
-from keypoint_detection.train.utils import create_pl_trainer
+from keypoint_detection.tasks.train_utils import create_pl_trainer
 from keypoint_detection.utils.heatmap import create_heatmap_batch, generate_channel_heatmap
 from keypoint_detection.utils.load_checkpoints import load_from_checkpoint
 from keypoint_detection.utils.path import get_wandb_log_dir_path
@@ -100,6 +101,10 @@ class TestModel(unittest.TestCase):
         self.assertTrue(torch.mean(heatmap).item() < 0.1)
         self.assertTrue(torch.var(heatmap).item() < 0.1)
 
+    # TODO: chcek if we can run it on gh actions as well.
+    IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
+
+    @pytest.mark.skipif(IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions atm")
     def test_checkpoint_loading(self):
         wandb_logger = WandbLogger(dir=get_wandb_log_dir_path(), mode="offline")
 
