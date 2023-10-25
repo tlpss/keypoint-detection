@@ -9,6 +9,29 @@ from PIL import Image, ImageDraw, ImageFont
 
 from keypoint_detection.utils.heatmap import generate_channel_heatmap
 
+DISTINCT_COLORS = [
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#7f7f7f",
+    "#bcbd22",
+    "#17becf",
+    "#aec7e8",
+    "#ffbb78",
+    "#98df8a",
+    "#c5b0d5",
+    "#c49c94",
+    "#f7b6d2",
+    "#c7c7c7",
+    "#dbdb8d",
+    "#9edae5",
+    "#393b79",
+]
+
 
 def get_logging_label_from_channel_configuration(channel_configuration: List[List[str]], mode: str) -> str:
     channel_name = channel_configuration
@@ -87,18 +110,7 @@ def draw_keypoints_on_image(
     image: Image, image_keypoints: List[List[Tuple[int, int]]], channel_configuration: List[List[str]]
 ) -> Image:
     """adds all keypoints to the PIL image, with different colors for each channel."""
-    color_pool = [
-        "#FF00FF",  # Neon Purple
-        "#00FF00",  # Electric Green
-        "#FFFF00",  # Cyber Yellow
-        "#0000FF",  # Laser Blue
-        "#FF0000",  # Radioactive Red
-        "#00FFFF",  # Galactic Teal
-        "#FF00AA",  # Quantum Pink
-        "#C0C0C0",  # Holographic Silver
-        "#000000",  # Abyssal Black
-        "#FFA500",  # Cosmic Orange
-    ]
+    color_pool = DISTINCT_COLORS
     image_size = image.size
     min_size = min(image_size)
     scale = 1 + (min_size // 256)
