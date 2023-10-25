@@ -10,6 +10,9 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v2
+      - name: install fonts for Pillow
+        run: |
+          sudo apt-get install fonts-freefont-ttf
       - name: install conda env with micromamba
         uses: mamba-org/provision-with-micromamba@main
         with:
