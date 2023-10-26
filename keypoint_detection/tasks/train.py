@@ -21,11 +21,16 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
     """
     parser = parent_parser.add_argument_group("System")
     parser.add_argument("--seed", default=2022, help="seed for reproducibility")
-    parser.add_argument("--wandb_project", default="test-project", help="The wandb project to log the results to")
+    parser.add_argument(
+        "--wandb_project", default="keypoint-detection", help="The wandb project to log the results to"
+    )
     parser.add_argument(
         "--wandb_entity",
-        default="airo-box-manipulation",
+        default=None,
         help="The entity name to log the project against, can be simply set to your username if you have no dedicated entity for this project",
+    )
+    parser.add_argument(
+        "--wandb_name", default=None, help="The name of the run, if not specified, a random name will be generated"
     )
     parser.add_argument(
         "--keypoint_channel_configuration",
@@ -35,7 +40,7 @@ def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
 
     parser.add_argument(
         "--early_stopping_relative_threshold",
-        default=0.0,
+        default=-1.0,  # no early stopping by default
         type=float,
         help="relative threshold for early stopping callback. If validation epoch loss does not increase with at least this fraction compared to the best result so far for 5 consecutive epochs, training is stopped.",
     )
@@ -70,7 +75,7 @@ def train(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
 
     # use deterministic algorithms for torch to ensure exact reproducibility
     # we have to set it in the trainer! (see create_pl_trainer)
-    if "wandb_checkpoint_artifact" in hparams.keys():
+    if hparams["wandb_checkpoint_artifact"] is not None:
         print("Loading checkpoint from wandb")
         # This will create a KeypointDetector model with the associated hyperparameters.
         # Model weights will be loaded.
@@ -127,8 +132,6 @@ def train_cli():
 
     # get parser arguments and filter the specified arguments
     hparams = vars(parser.parse_args())
-    # remove the unused optional items without default, which have None as key
-    hparams = {k: v for k, v in hparams.items() if v is not None}
     hparams["keypoint_channel_configuration"] = parse_channel_configuration(hparams["keypoint_channel_configuration"])
     print(f" argparse arguments ={hparams}")
 
