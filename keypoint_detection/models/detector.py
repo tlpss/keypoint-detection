@@ -5,7 +5,6 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import wandb
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.metrics import DetectedKeypoint, Keypoint, KeypointAPMetrics
@@ -172,27 +171,25 @@ class KeypointDetector(pl.LightningModule):
 
     def configure_optimizers(self):
         """
-        Configures an Adam optimizer with ReduceLROnPlateau scheduler. To disable the scheduler, set the relative threshold < 0.
+        Configures an Adam optimizer.
         """
         self.optimizer = torch.optim.Adam(self.parameters(), self.learning_rate)
-        self.lr_scheduler = ReduceLROnPlateau(
-            self.optimizer,
-            threshold=self.lr_scheduler_relative_threshold,
-            threshold_mode="rel",
-            mode="min",
-            factor=0.1,
-            patience=2,
-            verbose=True,
-        )
+
+        # TODO: the LR scheduler can reduce training robustness for smaller datasets (where the val loss might fluctuate more),
+        # this makes the impact of a random seed larger. So for now, we disable it.
+        # solution would be to limit the dependency of the scheduler on the dataset size, e.g. by coupling it to the number of model updates instead of epochs.
+
+        # self.lr_scheduler = ReduceLROnPlateau(
+        #     self.optimizer,
+        #     threshold=self.lr_scheduler_relative_threshold,
+        #     threshold_mode="rel",
+        #     mode="min",
+        #     factor=0.1,
+        #     patience=2,
+        #     verbose=True,
+        # )
         return {
             "optimizer": self.optimizer,
-            "lr_scheduler": {
-                "scheduler": self.lr_scheduler,
-                "monitor": "train/loss_epoch",
-                "frequency": 1
-                # If "monitor" references validation metrics, then "frequency" should be set to a
-                # multiple of "trainer.check_val_every_n_epoch".
-            },
         }
 
     def shared_step(self, batch, batch_idx, include_visualization_data_in_result_dict=False) -> Dict[str, Any]:
