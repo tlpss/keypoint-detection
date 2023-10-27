@@ -9,27 +9,31 @@ from PIL import Image, ImageDraw, ImageFont
 
 from keypoint_detection.utils.heatmap import generate_channel_heatmap
 
+# Kelly's 22 colors for max contrast
+# cf. https://gist.github.com/ollieglass/f6ddd781eeae1d24e391265432297538
 DISTINCT_COLORS = [
-    "#1f77b4",
-    "#ff7f0e",
-    "#2ca02c",
-    "#d62728",
-    "#9467bd",
-    "#8c564b",
-    "#e377c2",
-    "#7f7f7f",
-    "#bcbd22",
-    "#17becf",
-    "#aec7e8",
-    "#ffbb78",
-    "#98df8a",
-    "#c5b0d5",
-    "#c49c94",
-    "#f7b6d2",
-    "#c7c7c7",
-    "#dbdb8d",
-    "#9edae5",
-    "#393b79",
+    "#F2F3F4",
+    "#222222",
+    "#F3C300",
+    "#875692",
+    "#F38400",
+    "#A1CAF1",
+    "#BE0032",
+    "#C2B280",
+    "#848482",
+    "#008856",
+    "#E68FAC",
+    "#0067A5",
+    "#F99379",
+    "#604E97",
+    "#F6A600",
+    "#B3446C",
+    "#DCD300",
+    "#882D17",
+    "#8DB600",
+    "#654522",
+    "#E25822",
+    "#2B3D26",
 ]
 
 
