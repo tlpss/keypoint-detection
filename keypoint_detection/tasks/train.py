@@ -89,9 +89,10 @@ def train(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
 
     data_module = KeypointsDataModule(**hparams)
     wandb_logger = WandbLogger(
-        name=hparams["wandb_name"],
-        project=hparams["wandb_project"],
-        entity=hparams["wandb_entity"],
+        # these are already set in the wandb init (to start from a sweep config)
+        # name=hparams["wandb_name"],
+        # project=hparams["wandb_project"],
+        # entity=hparams["wandb_entity"],
         save_dir=get_wandb_log_dir_path(),
         log_model=True,  # only log checkpoints at the end of training, i.e. only log the best checkpoint
         # not suitable for expensive training runs where you might want to restart from checkpoint
@@ -141,6 +142,7 @@ def train_cli():
     # these can then be found in the 'config'
     # (so wandb params > argparse)
     wandb.init(
+        name=hparams["wandb_name"],
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
         config=hparams,
