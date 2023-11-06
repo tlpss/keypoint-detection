@@ -89,6 +89,7 @@ def train(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
 
     data_module = KeypointsDataModule(**hparams)
     wandb_logger = WandbLogger(
+        name=hparams["wandb_name"],
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
         save_dir=get_wandb_log_dir_path(),
