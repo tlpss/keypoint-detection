@@ -41,6 +41,7 @@ class KeypointsDataModule(pl.LightningDataModule):
         )
 
         parser.add_argument("--augment_train", dest="augment_train", default=False, action="store_true")
+        parser.add_argument("--resize_to", nargs=2, type=int, default=None, help="Resize images to this size (height, width)")
         parent_parser = COCOKeypointsDataset.add_argparse_args(parent_parser)
 
         return parent_parser
@@ -55,12 +56,14 @@ class KeypointsDataModule(pl.LightningDataModule):
         json_validation_dataset_path: str = None,
         json_test_dataset_path=None,
         augment_train: bool = False,
+        resize_to = None,
         **kwargs,
     ):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.augment_train = augment_train
+        self.resize_to = resize_to
 
         self.train_dataset = None
         if json_dataset_path:
@@ -83,12 +86,14 @@ class KeypointsDataModule(pl.LightningDataModule):
         if json_test_dataset_path:
             self.test_dataset = COCOKeypointsDataset(json_test_dataset_path, keypoint_channel_configuration, **kwargs)
 
+        train_transform_list = []
+
         # create the transforms if needed and set them to the datasets
         if augment_train:
             print("Augmenting the training dataset!")
             img_height, img_width = self.train_dataset[0][0].shape[1], self.train_dataset[0][0].shape[2]
             aspect_ratio = img_width / img_height
-            train_transform = MultiChannelKeypointsCompose(
+            train_transform_list.extend(
                 [
                     A.ColorJitter(p=0.8),
                     A.RandomBrightnessContrast(p=0.8),
@@ -100,6 +105,20 @@ class KeypointsDataModule(pl.LightningDataModule):
                     A.GaussNoise(),
                 ]
             )
+
+        if self.resize_to is not None:
+            assert len(self.resize_to) == 2, "Resize must be a tuple of (height, width)"
+            train_transform_list.append(A.Resize(*self.resize_to))
+            if isinstance(self.validation_dataset, COCOKeypointsDataset):
+                self.validation_dataset.transform = MultiChannelKeypointsCompose(A.Resize(*self.resize_to))
+            elif isinstance(self.validation_dataset, Subset):
+                # if the train dataset is a subset, we need to set the transform to the underlying dataset
+                # otherwise the transform will not be applied..
+                assert isinstance(self.validation_dataset.dataset, COCOKeypointsDataset)
+                self.validation_dataset.dataset.transform = MultiChannelKeypointsCompose(A.Resize(*self.resize_to))
+
+        if train_transform_list:
+            train_transform = MultiChannelKeypointsCompose(train_transform_list)
             if isinstance(self.train_dataset, COCOKeypointsDataset):
                 self.train_dataset.transform = train_transform
             elif isinstance(self.train_dataset, Subset):
