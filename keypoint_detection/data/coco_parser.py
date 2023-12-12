@@ -70,8 +70,8 @@ class CocoKeypoints(BaseModel):
         parsed_data = COCOKeypoints(**data)
     """
 
-    info: Optional[CocoInfo]
-    licenses: Optional[List[CocoLicenses]]
+    info: Optional[CocoInfo] = None
+    licenses: Optional[List[CocoLicenses]] = None
     images: List[CocoImage]
     categories: List[CocoKeypointCategory]
     annotations: List[CocoKeypointAnnotation]
