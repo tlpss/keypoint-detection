@@ -30,7 +30,7 @@ class CocoLicenses(BaseModel):
 
 
 class CocoImage(BaseModel):
-    license: Optional[LicenseID]
+    license: Optional[LicenseID] = None
     file_name: Relativepath
     height: int
     width: int
@@ -42,7 +42,7 @@ class CocoKeypointCategory(BaseModel):
     id: CategoryID
     name: str
     keypoints: List[str]
-    skeleton: Optional[List[List[int]]]
+    skeleton: Optional[List[List[int]]] = None
 
 
 class CocoKeypointAnnotation(BaseModel):
@@ -50,7 +50,7 @@ class CocoKeypointAnnotation(BaseModel):
     id: AnnotationID
     image_id: ImageID
 
-    num_keypoints: Optional[int]
+    num_keypoints: Optional[int] = None
     # COCO keypoints can be floats if they specify the exact location of the keypoint (e.g. from CVAT)
     # even though COCO format specifies zero-indexed integers (i.e. every keypoint in the [0,1]x [0.1] pixel box becomes (0,0)
     keypoints: List[float]
