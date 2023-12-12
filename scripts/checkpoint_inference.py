@@ -70,5 +70,5 @@ if __name__ == "__main__":
     # beware of the color channels order, it should be RGBD.
     image = io.imread(image_path)
 
-    keypoints = local_inference(model.half(), image)
+    keypoints = local_inference(model, image)
     print(keypoints)

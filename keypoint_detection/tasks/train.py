@@ -75,6 +75,7 @@ def train(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
 
     # use deterministic algorithms for torch to ensure exact reproducibility
     # we have to set it in the trainer! (see create_pl_trainer)
+
     if hparams["wandb_checkpoint_artifact"] is not None:
         print("Loading checkpoint from wandb")
         # This will create a KeypointDetector model with the associated hyperparameters.
@@ -110,7 +111,11 @@ def train(hparams: dict) -> Tuple[KeypointDetector, pl.Trainer]:
         ckpt_path = trainer.checkpoint_callback.best_model_path
         if ckpt_path == "":
             print("No best checkpoint found, using current weights for test set evaluation")
-        trainer.test(model, data_module, ckpt_path="best")
+            ckpt_path = None
+        else:
+            print(f"Using best checkpoint for test set evaluation: {ckpt_path}")
+            ckpt_path = "best"
+        trainer.test(model, data_module, ckpt_path=ckpt_path)
 
     return model, trainer
 
