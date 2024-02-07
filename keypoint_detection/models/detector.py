@@ -304,7 +304,7 @@ class KeypointDetector(pl.LightningModule):
         for channel_configuration, grid in zip(self.keypoint_channel_configuration, image_grids):
             label = get_logging_label_from_channel_configuration(channel_configuration, mode)
             image_caption = "top: predicted heatmaps, bottom: gt heatmaps"
-            self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
+            self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption,file_type="jpg")})
 
     def visualize_predicted_keypoints(self, result_dict):
         images = result_dict["input_images"]
@@ -458,7 +458,7 @@ class KeypointDetector(pl.LightningModule):
         is_epch = is_epch or self.current_epoch == self.trainer.max_epochs - 1
 
         # if user manually specified a validation frequency, we should always log the AP in that epoch
-        is_epch = is_epch or (self.current_epoch > 0 and self.trainer.check_val_every_n_epoch > 1)
+        # is_epch = is_epch or (self.current_epoch > 0 and self.trainer.check_val_every_n_epoch > 1)
         return is_epch
 
     def extract_detected_keypoints_from_heatmap(self, heatmap: torch.Tensor) -> List[DetectedKeypoint]:
