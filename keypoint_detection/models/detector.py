@@ -159,6 +159,8 @@ class KeypointDetector(pl.LightningModule):
         # this is for later reference (e.g. checkpoint loading) and consistency.
         self.save_hyperparameters(ignore=["**kwargs", "backbone"])
 
+        self._most_recent_val_mean_ap = 0.0 # used to store the most recent validation mean AP and log it in each epoch, so that checkpoint can be chosen based on this one.
+
     def forward(self, x: torch.Tensor):
         """
         x shape must be of shape (N,3,H,W)
@@ -386,6 +388,9 @@ class KeypointDetector(pl.LightningModule):
         self.log(f"{mode}/meanAP", mean_ap)
         self.log(f"{mode}/meanAP/meanAP", mean_ap)
 
+        if mode== "validation":
+            self._most_recent_val_mean_ap = mean_ap
+
     def training_epoch_end(self, outputs):
         """
         Called on the end of a training epoch.
@@ -401,6 +406,7 @@ class KeypointDetector(pl.LightningModule):
         """
         if self.is_ap_epoch():
             self.log_and_reset_mean_ap("validation")
+        self.log("checkpointing_metrics/valmeanAP", self._most_recent_val_mean_ap)
 
     def test_epoch_end(self, outputs):
         """
