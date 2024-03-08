@@ -160,6 +160,10 @@ class COCOKeypointsDataset(ImageDataset):
                 img_channels_keypoints = [[] for _ in range(len(self.keypoint_channel_configuration))]
                 for semantic_type, keypoints in keypoint_dict.items():
                     for keypoint in keypoints:
+
+                        if min(keypoint[:2]) < 0 or keypoint[0] > img_dict[img_id].width or keypoint[1] > img_dict[img_id].height:
+                            print("keypoint outside of image, ignoring.")
+                            continue
                         if self.is_keypoint_visible(keypoint):
                             channel_idx = self.get_keypoint_channel_index(semantic_type)
                             if channel_idx > -1:
