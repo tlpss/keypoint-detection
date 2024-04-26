@@ -8,7 +8,11 @@ import wandb
 
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.metrics import DetectedKeypoint, Keypoint, KeypointAPMetrics
-from keypoint_detection.utils.heatmap import BCE_loss, create_heatmap_batch, get_keypoints_from_heatmap_batch_maxpool
+from keypoint_detection.utils.heatmap import (
+    create_heatmap_batch,
+    get_keypoints_from_heatmap_batch_maxpool,
+    integral_loss,
+)
 from keypoint_detection.utils.visualization import (
     get_logging_label_from_channel_configuration,
     visualize_predicted_heatmaps,
@@ -20,8 +24,6 @@ class KeypointDetector(pl.LightningModule):
     """
     keypoint Detector using Spatial Heatmaps.
     There can be N channels of keypoints, each with its own set of ground truth keypoints.
-    The mean Average precision is used to calculate the performance.
-
     """
 
     @staticmethod
@@ -74,6 +76,20 @@ class KeypointDetector(pl.LightningModule):
             type=int,
             help="the maximum number of keypoints to predict from the generated heatmaps. If set to -1, skimage will look for all peaks in the heatmap, if set to N (N>0) it will return the N most most certain ones.",
         )
+        parser.add_argument(
+            "--use_integral_loss",
+            dest="use_integral_loss",
+            default=False,
+            action="store_true",
+            help="use integral loss in addition to a heatmap pixel-wise loss.Only meaningfull if there is at most one keypoint for each channel.",
+        )
+        parser.add_argument(
+            "--log_akd",
+            dest="log_akd",
+            default=False,
+            action="store_true",
+            help="log the average keypoint distance for each channel. Only meaningfull if there is at most one keypoint for each channel.",
+        )
         return parent_parser
 
     def __init__(
@@ -88,6 +104,8 @@ class KeypointDetector(pl.LightningModule):
         ap_epoch_freq: int,
         lr_scheduler_relative_threshold: float,
         max_keypoints: int,
+        use_integral_loss: bool,
+        log_akd: bool,
         **kwargs,
     ):
         """[summary]
@@ -115,6 +133,8 @@ class KeypointDetector(pl.LightningModule):
         self.minimal_keypoint_pixel_distance = minimal_keypoint_extraction_pixel_distance
         self.lr_scheduler_relative_threshold = lr_scheduler_relative_threshold
         self.max_keypoints = max_keypoints
+        self.log_average_keypoint_distance = log_akd
+        self.use_integral_loss = use_integral_loss
         self.keypoint_channel_configuration = keypoint_channel_configuration
         # parse the gt pixel distances
         if isinstance(maximal_gt_keypoint_pixel_distances, str):
@@ -133,6 +153,9 @@ class KeypointDetector(pl.LightningModule):
         self.ap_test_metrics = [
             KeypointAPMetrics(self.maximal_gt_keypoint_pixel_distances) for _ in self.keypoint_channel_configuration
         ]
+
+        if self.log_average_keypoint_distance:
+            raise NotImplementedError("Logging the average keypoint distance is not yet implemented.")
 
         self.n_heatmaps = len(self.keypoint_channel_configuration)
 
@@ -192,6 +215,28 @@ class KeypointDetector(pl.LightningModule):
             "optimizer": self.optimizer,
         }
 
+    def calculate_batch_channel_loss(self, predicted_unnormalized_heatmaps, gt_heatmaps, gt_keypoints):
+        """
+        Calculates the loss of a batch of images for a single channel.
+        """
+        channel_loss = nn.functional.binary_cross_entropy_with_logits(predicted_unnormalized_heatmaps, gt_heatmaps)
+        # channel_loss = torch.Tensor([0]).to(self.device).requires_grad_()
+        if self.use_integral_loss:
+            channel_integral_loss = 0
+            # TODO: separate this into a separate function
+            for batch_idx in range(len(gt_heatmaps)):
+                if len(gt_keypoints[batch_idx]) == 0:
+                    continue
+                if len(gt_keypoints[batch_idx]) > 1:
+                    raise ValueError("Only one keypoint per channel is supported for integral loss.")
+
+                predicted_heatmap = torch.sigmoid(predicted_unnormalized_heatmaps[batch_idx])
+                loss = integral_loss(predicted_heatmap, gt_keypoints[batch_idx], self.device)
+                channel_integral_loss += loss / max(gt_heatmaps.shape)  # normalize by the size of the heatmap
+            channel_integral_loss /= len(gt_heatmaps)
+            channel_loss = channel_loss + channel_integral_loss * 0.1  # try to balance both losses.
+        return channel_loss
+
     def shared_step(self, batch, batch_idx, include_visualization_data_in_result_dict=False) -> Dict[str, Any]:
         """
         shared step for train and validation step that computes the heatmaps and losses and
@@ -225,12 +270,18 @@ class KeypointDetector(pl.LightningModule):
         for channel_idx in range(len(self.keypoint_channel_configuration)):
             channel_losses.append(
                 # combines sigmoid with BCE for increased stability.
-                nn.functional.binary_cross_entropy_with_logits(
-                    predicted_unnormalized_maps[:, channel_idx, :, :], gt_heatmaps[channel_idx]
+                self.calculate_batch_channel_loss(
+                    predicted_unnormalized_maps[:, channel_idx, :, :],
+                    gt_heatmaps[channel_idx],
+                    keypoint_channels[channel_idx],
                 )
             )
             with torch.no_grad():
-                channel_gt_losses.append(BCE_loss(gt_heatmaps[channel_idx], gt_heatmaps[channel_idx]))
+                channel_gt_losses.append(
+                    self.calculate_batch_channel_loss(
+                        gt_heatmaps[channel_idx], gt_heatmaps[channel_idx], keypoint_channels[channel_idx]
+                    )
+                )
 
             # pass losses and other info to result dict
             result_dict.update(

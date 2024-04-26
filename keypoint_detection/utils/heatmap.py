@@ -4,6 +4,18 @@ from typing import List, Optional, Tuple
 import numpy as np
 import torch
 from skimage.feature import peak_local_max
+from torch import nn
+
+
+def integral_loss(heatmap: torch.Tensor, keypoint: torch.Tensor, device: str = "cpu"):
+    """Calculate the integral loss for a single keypoint and heatmap."""
+    normalized_heatmap = heatmap / heatmap.sum()
+    # get the expected value of the heatmap
+    u_range, v_range = torch.arange(heatmap.shape[1], device=device), torch.arange(heatmap.shape[0], device=device)
+    expected_u = (normalized_heatmap.sum(0) * u_range).sum()
+    expected_v = (normalized_heatmap.sum(1) * v_range).sum()
+    expected_value = torch.stack([expected_u, expected_v])
+    return nn.functional.l1_loss(expected_value, keypoint.float())
 
 
 def BCE_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
