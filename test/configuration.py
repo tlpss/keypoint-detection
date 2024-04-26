@@ -40,4 +40,6 @@ DEFAULT_HPARAMS = {
     "dilation": 1,
     "random-arg-to-test": "random",
     "max_keypoints": 20,
+    "use_integral_loss": False,
+    "log_akd": False,
 }

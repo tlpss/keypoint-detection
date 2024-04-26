@@ -8,13 +8,38 @@ from torch import nn
 
 
 def integral_loss(heatmap: torch.Tensor, keypoint: torch.Tensor, device: str = "cpu"):
-    """Calculate the integral loss for a single keypoint and heatmap."""
+    """Calculate the integral loss for a single keypoint and heatmap.
+    cf. https://arxiv.org/pdf/1711.08229
+    """
+
+    # no softmax as in other work, since I know that they are already in range (0,1) and represent probabilities for each pixel.
+    # So relatively well-behaved.
+    # Softmax works as well though.
+
+    # normalized_heatmap = heatmap
+    # normalized_heatmap = normalized_heatmap.flatten()
+    # normalized_heatmap = nn.functional.softmax(normalized_heatmap, dim=-1)
+    # normalized_heatmap = normalized_heatmap.reshape(heatmap.shape)
+
     normalized_heatmap = heatmap / heatmap.sum()
+
+    # both formulations work.
+    #
+    # u_range, v_range = torch.arange(heatmap.shape[1], device=device), torch.arange(heatmap.shape[0], device=device)
+    # expected_u = (normalized_heatmap.sum(0) * u_range).sum()
+    # expected_v = (normalized_heatmap.sum(1) * v_range).sum()
+    # expected_value = torch.stack([expected_u, expected_v])
+
     # get the expected value of the heatmap
-    u_range, v_range = torch.arange(heatmap.shape[1], device=device), torch.arange(heatmap.shape[0], device=device)
-    expected_u = (normalized_heatmap.sum(0) * u_range).sum()
-    expected_v = (normalized_heatmap.sum(1) * v_range).sum()
-    expected_value = torch.stack([expected_u, expected_v])
+    indices = torch.meshgrid(
+        torch.arange(heatmap.shape[0], device=device), torch.arange(heatmap.shape[1], device=device)
+    )
+    expected_value = torch.stack([indices[0].float(), indices[1].float()], dim=-1)
+    expected_value = (expected_value * normalized_heatmap.unsqueeze(-1)).sum(dim=(0, 1))
+
+    # flip to (u,v) order
+    expected_value = torch.flip(expected_value, [0])
+
     return nn.functional.l1_loss(expected_value, keypoint.float())
 
 

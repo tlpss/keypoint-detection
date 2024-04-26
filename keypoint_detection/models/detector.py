@@ -219,8 +219,8 @@ class KeypointDetector(pl.LightningModule):
         """
         Calculates the loss of a batch of images for a single channel.
         """
-        channel_loss = nn.functional.binary_cross_entropy_with_logits(predicted_unnormalized_heatmaps, gt_heatmaps)
         # channel_loss = torch.Tensor([0]).to(self.device).requires_grad_()
+        channel_loss = nn.functional.binary_cross_entropy_with_logits(predicted_unnormalized_heatmaps, gt_heatmaps)
         if self.use_integral_loss:
             channel_integral_loss = 0
             # TODO: separate this into a separate function
@@ -235,6 +235,10 @@ class KeypointDetector(pl.LightningModule):
                 channel_integral_loss += loss / max(gt_heatmaps.shape)  # normalize by the size of the heatmap
             channel_integral_loss /= len(gt_heatmaps)
             channel_loss = channel_loss + channel_integral_loss * 0.1  # try to balance both losses.
+            # integral loss without BCE results in BLOBs that are correct but not useful for the armgax keypoint extraction.
+            # integral loss with alpha=1.0 results in slow / not learning?..
+            # setting it too small (0.01), renders it useless.
+            # however, have not seen clear improvements so far.
         return channel_loss
 
     def shared_step(self, batch, batch_idx, include_visualization_data_in_result_dict=False) -> Dict[str, Any]:
@@ -279,7 +283,9 @@ class KeypointDetector(pl.LightningModule):
             with torch.no_grad():
                 channel_gt_losses.append(
                     self.calculate_batch_channel_loss(
-                        gt_heatmaps[channel_idx], gt_heatmaps[channel_idx], keypoint_channels[channel_idx]
+                        torch.logit(gt_heatmaps[channel_idx], eps=1e-6),
+                        gt_heatmaps[channel_idx],
+                        keypoint_channels[channel_idx],
                     )
                 )
 

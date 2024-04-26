@@ -8,6 +8,7 @@ from keypoint_detection.utils.heatmap import (
     generate_channel_heatmap,
     get_keypoints_from_heatmap_batch_maxpool,
     get_keypoints_from_heatmap_scipy,
+    integral_loss,
 )
 
 
@@ -67,3 +68,9 @@ class TestHeatmapUtils(unittest.TestCase):
         self.assertEqual(
             batch_heatmap.shape, (len(batch_channel_list_of_keypoint_tensors), self.image_height, self.image_width)
         )
+
+    def test_integral_loss(self):
+        heatmap = torch.zeros((self.image_height, self.image_width))
+        heatmap[4, 10] = 1.0
+        loss = integral_loss(heatmap, torch.tensor([10, 4]))
+        assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6)
