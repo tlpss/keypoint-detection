@@ -59,6 +59,10 @@ class DinoV2Up(Backbone):
 
     THe head is most likely not the optimal architecture. reducing the #params in the decoder does not work for sure.
       Unfreezing the dino model doesn't work either (for small datasets).
+
+    note that the model is trained on 518x518 images and will perform best on images of that size.
+    images of other sizes are first resized to 518x518 before being fed to the model and their features are then resized back to the original size after being upsampled to 518x518.
+    #TODO: figure out if it is better to change # patches for larger images, by interpolating the positional embeddings. As described in the original ViT paper
     """
 
     def __init__(self, **kwargs):
