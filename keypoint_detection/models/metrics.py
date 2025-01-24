@@ -11,7 +11,6 @@ from typing import Callable, Dict, List, Tuple
 
 import torch
 from torchmetrics import Metric
-from torchmetrics.utilities import check_forward_full_state_property
 
 
 @dataclass
@@ -239,11 +238,35 @@ def _zero_aware_division(num: float, denom: float) -> float:
         return num / denom
 
 
-if __name__ == "__main__":
-    print(
-        check_forward_full_state_property(
-            KeypointAPMetric,
-            init_args={"keypoint_threshold_distance": 2.0},
-            input_args={"detected_keypoints": [DetectedKeypoint(10, 20, 0.02)], "gt_keypoints": [Keypoint(10, 23)]},
-        )
-    )
+# if __name__ == "__main__":
+#     print(
+#         check_forward_full_state_property(
+#             KeypointAPMetric,
+#             init_args={"keypoint_threshold_distance": 2.0},
+#             input_args={"detected_keypoints": [DetectedKeypoint(10, 20, 0.02)], "gt_keypoints": [Keypoint(10, 23)]},
+#         )
+#     )
+
+
+# if __name__ == "__main__":
+#     import numpy as np
+#     from sklearn.metrics import average_precision_score, precision_recall_curve
+#     import matplotlib.pyplot as plt
+
+#     y_true = np.array([1, 1, 0, 1,0,0,0,0])
+#     y_scores = np.array([0.1, 0.4, 0.35, 0.8,0.01,0.01,0.01,0.01])
+
+#     y_true = np.random.randint(0,2,100)
+#     y_scores = np.random.rand(100)
+#     sklearn_precisions, sklearn_recalls, _ = precision_recall_curve(y_true, y_scores)
+#     sklearnAP = average_precision_score(y_true, y_scores)
+
+#     print(f"sklearn AP: {sklearnAP}")
+#     my_precisions, my_recalls  = calculate_precision_recall([ClassifiedKeypoint(None,None,y_scores[i],None,y_true[i]) for i in range(len(y_true))], sum(y_true))
+#     myAP = calculate_ap_from_pr(my_precisions, my_recalls)
+#     print(f"my AP: {myAP}")
+
+#     plt.plot(sklearn_recalls, sklearn_precisions, label=f"sklearn AP: {sklearnAP}")
+#     plt.plot(my_recalls, my_precisions, label=f"my AP: {myAP}")
+#     plt.legend()
+#     plt.savefig("test.png")

@@ -19,7 +19,7 @@ setup(
         "pytest",
         "pre-commit",
         "scikit-image",
-        "albumentations",
+        "albumentations<2.0",  # >=2.0 requires higher version of pydantic  than wandb currently allows
         "matplotlib",
         "pydantic>=2.0.0",  # 2.0 has breaking changes
         "fiftyone",
