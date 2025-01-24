@@ -43,21 +43,22 @@ class UpSamplingBlock(nn.Module):
 
 class DinoV2Up(Backbone):
     """
-    backbone based on a frozen Dino-v2 ViT-S  encoder and a number of conv-based upsampling blocks to go from patch-level to pixel-level.
+    backbone based on a frozen Dino-v2 ViT-S  model and a number of conv-based upsampling blocks to go from patch-level to pixel-level.
     Images are resized to 518x518 before being fed to the ViT.
 
-    The Dino v2 paper considers adding  both a linear layer  and a full-blown DPT head () to the intermediate output of the last 4 blocks of the ViT.
+    The Dino v2 paper considers adding  both a linear layer  and a full-blown DPT head to the intermediate output of the last 4 blocks of the ViT.
 
     This model can be considered as a simpler alternative to the DPT head that also aims to increase resolution of the features.
 
-    The decoder adds about 6M params, bringing the total to 28 params.
-    only the decoder is trained, the encoder is frozen.
+    The upsample blocks add about 6M params, bringing the total to 28 params.
+    only these blocks are trained, the dino model is frozen.
 
     Dinov2 paper: https://arxiv.org/pdf/2304.07193#page=13.87
     DPT paper: https://arxiv.org/abs/2103.13413
 
 
-    THe decoder is most likely not the optimal architecture. reducing the #params in the decoder does not work for sure. Unfreezing the encoder doesn't work either (for small datasets).
+    THe head is most likely not the optimal architecture. reducing the #params in the decoder does not work for sure.
+      Unfreezing the dino model doesn't work either (for small datasets).
     """
 
     def __init__(self, **kwargs):
