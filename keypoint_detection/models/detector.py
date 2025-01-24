@@ -159,7 +159,7 @@ class KeypointDetector(pl.LightningModule):
         # this is for later reference (e.g. checkpoint loading) and consistency.
         self.save_hyperparameters(ignore=["**kwargs", "backbone"])
 
-        self._most_recent_val_mean_ap = 0.0 # used to store the most recent validation mean AP and log it in each epoch, so that checkpoint can be chosen based on this one.
+        self._most_recent_val_mean_ap = 0.0  # used to store the most recent validation mean AP and log it in each epoch, so that checkpoint can be chosen based on this one.
 
     def forward(self, x: torch.Tensor):
         """
@@ -306,7 +306,7 @@ class KeypointDetector(pl.LightningModule):
         for channel_configuration, grid in zip(self.keypoint_channel_configuration, image_grids):
             label = get_logging_label_from_channel_configuration(channel_configuration, mode)
             image_caption = "top: predicted heatmaps, bottom: gt heatmaps"
-            self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption,file_type="jpg")})
+            self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption, file_type="jpg")})
 
     def visualize_predicted_keypoints(self, result_dict):
         images = result_dict["input_images"]
@@ -388,7 +388,7 @@ class KeypointDetector(pl.LightningModule):
         self.log(f"{mode}/meanAP", mean_ap)
         self.log(f"{mode}/meanAP/meanAP", mean_ap)
 
-        if mode== "validation":
+        if mode == "validation":
             self._most_recent_val_mean_ap = mean_ap
 
     def training_epoch_end(self, outputs):

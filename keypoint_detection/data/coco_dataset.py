@@ -117,7 +117,7 @@ class COCOKeypointsDataset(ImageDataset):
         image = self.image_to_tensor_transform(image)
         return image, keypoints
 
-    def prepare_dataset(self):
+    def prepare_dataset(self):  # noqa: C901
         """Prepares the dataset to map from COCO to (img, [keypoints for each channel])
 
         Returns:
@@ -161,7 +161,11 @@ class COCOKeypointsDataset(ImageDataset):
                 for semantic_type, keypoints in keypoint_dict.items():
                     for keypoint in keypoints:
 
-                        if min(keypoint[:2]) < 0 or keypoint[0] > img_dict[img_id].width or keypoint[1] > img_dict[img_id].height:
+                        if (
+                            min(keypoint[:2]) < 0
+                            or keypoint[0] > img_dict[img_id].width
+                            or keypoint[1] > img_dict[img_id].height
+                        ):
                             print("keypoint outside of image, ignoring.")
                             continue
                         if self.is_keypoint_visible(keypoint):
