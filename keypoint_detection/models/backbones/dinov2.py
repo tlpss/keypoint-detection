@@ -41,8 +41,26 @@ class UpSamplingBlock(nn.Module):
         return x
 
 
-class DinoV2Linear(Backbone):
-    def __init__(self):
+class DinoV2Up(Backbone):
+    """
+    backbone based on a frozen Dino-v2 ViT-S  encoder and a number of conv-based upsampling blocks to go from patch-level to pixel-level.
+    Images are resized to 518x518 before being fed to the ViT.
+
+    The Dino v2 paper considers adding  both a linear layer  and a full-blown DPT head () to the intermediate output of the last 4 blocks of the ViT.
+
+    This model can be considered as a simpler alternative to the DPT head that also aims to increase resolution of the features.
+
+    The decoder adds about 6M params, bringing the total to 28 params.
+    only the decoder is trained, the encoder is frozen.
+
+    Dinov2 paper: https://arxiv.org/pdf/2304.07193#page=13.87
+    DPT paper: https://arxiv.org/abs/2103.13413
+
+
+    THe decoder is most likely not the optimal architecture. reducing the #params in the decoder does not work for sure. Unfreezing the encoder doesn't work either (for small datasets).
+    """
+
+    def __init__(self, **kwargs):
         super().__init__()
         self.encoder = timm.create_model(
             "vit_small_patch14_dinov2.lvd142m",
@@ -57,12 +75,16 @@ class DinoV2Linear(Backbone):
             self.encoder, ["blocks.8", "blocks.9", "blocks.10", "blocks.11"]
         )
 
+        # freeze the feature extractor
+        for param in self.feature_extractor.parameters():
+            param.requires_grad = False
+
         self.upsamplingblocks = nn.ModuleList(
             [
-                UpSamplingBlock(4 * 384, 3 * 384, 3),
-                UpSamplingBlock(3 * 384, 2 * 384, 3),
-                UpSamplingBlock(2 * 384, 384, 3),
-                UpSamplingBlock(384, 384, 3),
+                UpSamplingBlock(4 * 384, 384, 3),
+                UpSamplingBlock(384, 192, 3),
+                UpSamplingBlock(192, 96, 3),
+                UpSamplingBlock(96, 96, 3),
             ]
         )
 
@@ -96,11 +118,15 @@ class DinoV2Linear(Backbone):
         return features
 
     def get_n_channels_out(self):
-        return 384
+        return 96
 
 
 if __name__ == "__main__":
-    model = DinoV2Linear()
+    model = DinoV2Up()
+
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"num trainable params = {num_params/10**6:.2f} M")
+
     x = torch.zeros((1, 3, 512, 512))
     y = model(x)
     print(y.shape)
