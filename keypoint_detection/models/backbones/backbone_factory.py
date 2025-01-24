@@ -4,6 +4,7 @@ from typing import List
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.backbones.convnext_unet import ConvNeXtUnet
 from keypoint_detection.models.backbones.dilated_cnn import DilatedCnn
+from keypoint_detection.models.backbones.dinov2 import DinoV2Linear
 from keypoint_detection.models.backbones.maxvit_unet import MaxVitPicoUnet, MaxVitUnet
 from keypoint_detection.models.backbones.mobilenetv3 import MobileNetV3
 from keypoint_detection.models.backbones.s3k import S3K
@@ -20,6 +21,7 @@ class BackboneFactory:
         S3K,
         DilatedCnn,
         MobileNetV3,
+        DinoV2Linear,
     ]
 
     @staticmethod
