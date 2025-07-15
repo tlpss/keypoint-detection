@@ -123,12 +123,12 @@ def draw_keypoints_on_image(
     for channel_idx, channel_keypoints in enumerate(image_keypoints):
         for keypoint_idx, keypoint in enumerate(channel_keypoints):
             u, v = keypoint
-            draw.ellipse((u - scale, v - scale, u + scale, v + scale), fill=color_pool[channel_idx])
+            draw.ellipse((u - scale, v - scale, u + scale, v + scale), fill=color_pool[channel_idx % len(color_pool)])
 
         draw.text(
             (10, channel_idx * 10 * scale),
             get_logging_label_from_channel_configuration(channel_configuration[channel_idx], ""),
-            fill=color_pool[channel_idx],
+            fill=color_pool[channel_idx % len(color_pool)],
             font=ImageFont.truetype("FreeMono.ttf", size=10 * scale),
         )
 
