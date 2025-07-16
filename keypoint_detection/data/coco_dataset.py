@@ -5,9 +5,12 @@ import typing
 from collections import defaultdict
 from pathlib import Path
 from typing import List, Tuple
+import cv2
 
 import albumentations as A
 import torch
+torch.set_float32_matmul_precision("medium")
+import numpy as np
 from torchvision.transforms import ToTensor
 
 from keypoint_detection.data.coco_parser import CocoImage, CocoKeypointCategory, CocoKeypoints
@@ -49,6 +52,14 @@ class COCOKeypointsDataset(ImageDataset):
             action="store_true",
             help="If set, only keypoints with flag > 1.0 will be used.",
         )
+        
+        parser.add_argument(
+            "--max_image_size",
+            type=int,
+            dest="max_image_size",
+            default=512,
+            help="Maximum image size for the images in the dataset. Images will be resized to this size if they are larger.",
+        )
 
         return parent_parser
 
@@ -59,6 +70,7 @@ class COCOKeypointsDataset(ImageDataset):
         detect_only_visible_keypoints: bool = True,
         transform: A.Compose = None,
         imageloader: ImageLoader = None,
+        max_image_size: int = 512,
         **kwargs,
     ):
         super().__init__(imageloader)
@@ -69,8 +81,15 @@ class COCOKeypointsDataset(ImageDataset):
 
         self.keypoint_channel_configuration = keypoint_channel_configuration
         self.detect_only_visible_keypoints = detect_only_visible_keypoints
+        
+        # Adjust max_image_size to be divisible by 32
+        divisor = 32
+        original_max_size = max_image_size
+        max_image_size = (max_image_size // divisor) * divisor
+        if max_image_size != original_max_size:
+            print(f"Warning: Adjusted max_image_size from {original_max_size} to {max_image_size} to ensure divisibility by {divisor}")
+        self.max_image_size = max_image_size
 
-        print(f"{detect_only_visible_keypoints=}")
 
         self.random_crop_transform = None
         self.transform = transform
@@ -93,11 +112,47 @@ class COCOKeypointsDataset(ImageDataset):
 
         image_path = self.dataset_dir_path / self.dataset[index][0]
         image = self.image_loader.get_image(str(image_path), index)
-        # remove a-channel if needed
+        # turn grayscale image to 3-channel
+        if len(image.shape) == 2:
+            image = np.stack((image,) * 3, axis=-1)
+         # remove a-channel if needed
         if image.shape[2] == 4:
             image = image[..., :3]
+        longest_side = max(image.shape[0], image.shape[1])
+        
+        scale = self.max_image_size / longest_side
+
+        
+        # Ensure valid dimensions
+        new_height = min(int(image.shape[0] * scale), self.max_image_size)
+        new_width = min(int(image.shape[1] * scale), self.max_image_size)
+        
+        # Calculate scaling ratios for keypoints
+        x_ratio = new_width / image.shape[1]
+        y_ratio = new_height / image.shape[0]
+        
+        # Resize image
+        #image = A.resize(image, (new_height, new_width), interpolation=1)
+        #resize using opencv
+        image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+            
+        #we need to add padding to have a square image, will be used for collate_fn, original image will be placed at top left so we don't have to deal with padding in the heatmap generation
+        black_background = np.zeros((self.max_image_size, self.max_image_size, 3), dtype=np.uint8)
+        black_background[:new_height, :new_width] = image
+        image = black_background
 
         keypoints = self.dataset[index][1]
+        
+        # Scale keypoints to match the resized image
+        keypoints_np = []
+        for channel_keypoints in keypoints:
+            scaled_channel_keypoints = []
+            for kp in channel_keypoints:
+                scaled_kp = [kp[0] * x_ratio, kp[1] * y_ratio]
+                scaled_channel_keypoints.append(scaled_kp)
+            keypoints_np.append(scaled_channel_keypoints)
+        keypoints = keypoints_np
+        
 
         if self.transform:
             transformed = self.transform(image=image, keypoints=keypoints)

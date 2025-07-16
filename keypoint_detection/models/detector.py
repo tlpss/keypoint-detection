@@ -1,5 +1,5 @@
 import argparse
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import pytorch_lightning as pl
 import torch
@@ -8,12 +8,13 @@ import wandb
 
 from keypoint_detection.models.backbones.base_backbone import Backbone
 from keypoint_detection.models.metrics import DetectedKeypoint, Keypoint, KeypointAPMetrics
-from keypoint_detection.utils.heatmap import BCE_loss, create_heatmap_batch, get_keypoints_from_heatmap_batch_maxpool
+from keypoint_detection.utils.heatmap import BCE_loss, create_heatmap_batch, get_keypoints_from_heatmap_batch_maxpool, focal_loss_with_logits, adaptive_focal_loss_with_logits
 from keypoint_detection.utils.visualization import (
     get_logging_label_from_channel_configuration,
     visualize_predicted_heatmaps,
     visualize_predicted_keypoints,
 )
+from keypoint_detection.models.optimized_threshold import OptimizedThresholdSearch
 
 
 class KeypointDetector(pl.LightningModule):
@@ -70,10 +71,38 @@ class KeypointDetector(pl.LightningModule):
         )
         parser.add_argument(
             "--max_keypoints",
-            default=20,
+            default=100,
             type=int,
             help="the maximum number of keypoints to predict from the generated heatmaps. If set to -1, skimage will look for all peaks in the heatmap, if set to N (N>0) it will return the N most most certain ones.",
         )
+        
+        parser.add_argument(
+            "--lr_scheduler", 
+            type=str, 
+            choices=["none", "cosine", "onecycle", "step", "plateau"],
+            default="cosine",
+            help="Learning rate scheduler type"
+        )
+        parser.add_argument(
+            "--lr_warmup_epochs", 
+            type=int, 
+            default=10,
+            help="Number of warmup epochs for cosine/onecycle schedulers"
+        )
+        parser.add_argument(
+            "--lr_step_milestones", 
+            type=str, 
+            default="150,250,350",
+            help="Comma-separated epochs for step scheduler"
+        )
+        parser.add_argument(
+            "--lr_step_gamma", 
+            type=float, 
+            default=0.1,
+            help="LR decay factor for step scheduler"
+        )
+        
+        parent_parser = KeypointDetector.add_focal_loss_args(parent_parser)
         return parent_parser
 
     def __init__(
@@ -88,6 +117,10 @@ class KeypointDetector(pl.LightningModule):
         ap_epoch_freq: int,
         lr_scheduler_relative_threshold: float,
         max_keypoints: int,
+        use_focal_loss: bool = False,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2.0,
+        use_adaptive_focal_loss: bool = False,
         **kwargs,
     ):
         """[summary]
@@ -107,7 +140,10 @@ class KeypointDetector(pl.LightningModule):
         # 1. define as named arg in the init (and use them)
         # 2. add to the argparse method of this module
         # 3. pass them along when calling the train.py file to override their default value
-
+        self.lr_scheduler = kwargs.get('lr_scheduler', 'cosine')
+        self.lr_warmup_epochs = kwargs.get('lr_warmup_epochs', 10)
+        self.lr_step_milestones = kwargs.get('lr_step_milestones', '150,250,350')
+        self.lr_step_gamma = kwargs.get('lr_step_gamma', 0.1)
         self.learning_rate = learning_rate
         self.heatmap_sigma = heatmap_sigma
         self.ap_epoch_start = ap_epoch_start
@@ -157,9 +193,15 @@ class KeypointDetector(pl.LightningModule):
         # save hyperparameters to logger, to make sure the model hparams are saved even if
         # they are not included in the config (i.e. if they are kept at the defaults).
         # this is for later reference (e.g. checkpoint loading) and consistency.
-        self.save_hyperparameters(ignore=["**kwargs", "backbone"])
+        
 
         self._most_recent_val_mean_ap = 0.0  # used to store the most recent validation mean AP and log it in each epoch, so that checkpoint can be chosen based on this one.
+        
+        self.use_focal_loss = use_focal_loss
+        self.focal_loss_alpha = focal_loss_alpha
+        self.focal_loss_gamma = focal_loss_gamma
+        self.use_adaptive_focal_loss = use_adaptive_focal_loss
+        self.save_hyperparameters(ignore=["**kwargs", "backbone"])
 
     def forward(self, x: torch.Tensor):
         """
@@ -177,22 +219,95 @@ class KeypointDetector(pl.LightningModule):
         """
         self.optimizer = torch.optim.Adam(self.parameters(), self.learning_rate)
 
-        # TODO: the LR scheduler can reduce training robustness for smaller datasets (where the val loss might fluctuate more),
-        # this makes the impact of a random seed larger. So for now, we disable it.
-        # solution would be to limit the dependency of the scheduler on the dataset size, e.g. by coupling it to the number of model updates instead of epochs.
-
-        # self.lr_scheduler = ReduceLROnPlateau(
-        #     self.optimizer,
-        #     threshold=self.lr_scheduler_relative_threshold,
-        #     threshold_mode="rel",
-        #     mode="min",
-        #     factor=0.1,
-        #     patience=2,
-        #     verbose=True,
-        # )
-        return {
-            "optimizer": self.optimizer,
-        }
+        if self.lr_scheduler == "none":
+                return {"optimizer": self.optimizer}
+            
+        elif self.lr_scheduler == "cosine":
+            # Cosine annealing - excellent for long training runs
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer,
+                T_max=self.trainer.max_epochs - self.lr_warmup_epochs,
+                eta_min=self.learning_rate * 0.01  # End at 1% of initial LR
+            )
+            
+            if self.lr_warmup_epochs > 0:
+                # Add warmup
+                warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+                    self.optimizer,
+                    start_factor=0.1,  # Start at 10% of LR
+                    total_iters=self.lr_warmup_epochs
+                )
+                scheduler = torch.optim.lr_scheduler.SequentialLR(
+                    self.optimizer,
+                    schedulers=[warmup_scheduler, scheduler],
+                    milestones=[self.lr_warmup_epochs]
+                )
+            
+            return {
+                "optimizer": self.optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "interval": "epoch"
+                }
+            }
+        
+        elif self.lr_scheduler == "onecycle":
+            # OneCycleLR - very effective for training from scratch
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                self.optimizer,
+                max_lr=self.learning_rate * 3,  # Peak at 3x base LR
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=len(self.trainer.datamodule.train_dataloader()),
+                pct_start=0.3,  # 30% warmup, 70% decay
+                anneal_strategy='cos'
+            )
+            
+            return {
+                "optimizer": self.optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "interval": "step"  # OneCycle needs step-wise updates
+                }
+            }
+        
+        elif self.lr_scheduler == "step":
+            # Step decay at specific epochs
+            milestones = [int(x) for x in self.lr_step_milestones.split(",")]
+            scheduler = torch.optim.lr_scheduler.MultiStepLR(
+                self.optimizer,
+                milestones=milestones,
+                gamma=self.lr_step_gamma
+            )
+            
+            return {
+                "optimizer": self.optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "interval": "epoch"
+                }
+            }
+        
+        elif self.lr_scheduler == "plateau":
+            # Reduce on plateau - good for validation-driven training
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer,
+                mode='min',
+                factor=0.5,
+                patience=15,  # More patience for small datasets
+                threshold=0.01,
+                threshold_mode='rel',
+                verbose=True,
+                min_lr=self.learning_rate * 0.01
+            )
+            
+            return {
+                "optimizer": self.optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "monitor": "validation/epoch_loss",  # Monitor validation loss
+                    "interval": "epoch"
+                }
+            }
 
     def shared_step(self, batch, batch_idx, include_visualization_data_in_result_dict=False) -> Dict[str, Any]:
         """
@@ -225,12 +340,29 @@ class KeypointDetector(pl.LightningModule):
 
         result_dict = {}
         for channel_idx in range(len(self.keypoint_channel_configuration)):
-            channel_losses.append(
-                # combines sigmoid with BCE for increased stability.
-                nn.functional.binary_cross_entropy_with_logits(
-                    predicted_unnormalized_maps[:, channel_idx, :, :], gt_heatmaps[channel_idx]
+            if self.use_focal_loss:
+                if self.use_adaptive_focal_loss:
+                    loss_fn = adaptive_focal_loss_with_logits
+                else:
+                    loss_fn = focal_loss_with_logits
+                
+                channel_losses.append(
+                    loss_fn(
+                        predicted_unnormalized_maps[:, channel_idx, :, :], 
+                        gt_heatmaps[channel_idx],
+                        alpha=self.focal_loss_alpha,
+                        gamma=self.focal_loss_gamma
+                    )
                 )
-            )
+            else:
+                # Original BCE loss
+                channel_losses.append(
+                    nn.functional.binary_cross_entropy_with_logits(
+                        predicted_unnormalized_maps[:, channel_idx, :, :], 
+                        gt_heatmaps[channel_idx]
+                    )
+                )
+            
             with torch.no_grad():
                 channel_gt_losses.append(BCE_loss(gt_heatmaps[channel_idx], gt_heatmaps[channel_idx]))
 
@@ -272,11 +404,11 @@ class KeypointDetector(pl.LightningModule):
             self.log_channel_predictions_grids(image_grids, mode="train")
 
         for channel_name in self.keypoint_channel_configuration:
-            self.log(f"train/{channel_name}", result_dict[f"{channel_name}_loss"])
+            self.log(f"train/{channel_name}", result_dict[f"{channel_name}_loss"], sync_dist=True)
 
         # self.log("train/loss", result_dict["loss"])
-        self.log("train/gt_loss", result_dict["gt_loss"])
-        self.log("train/loss", result_dict["loss"], on_epoch=True)  # also logs steps?
+        self.log("train/gt_loss", result_dict["gt_loss"], sync_dist=True)
+        self.log("train/loss", result_dict["loss"], on_epoch=True, sync_dist=True)  # also logs steps?
         return result_dict
 
     def update_ap_metrics(self, result_dict, ap_metrics):
@@ -303,10 +435,11 @@ class KeypointDetector(pl.LightningModule):
         return image_grids
 
     def log_channel_predictions_grids(self, image_grids, mode: str):
-        for channel_configuration, grid in zip(self.keypoint_channel_configuration, image_grids):
-            label = get_logging_label_from_channel_configuration(channel_configuration, mode)
-            image_caption = "top: predicted heatmaps, bottom: gt heatmaps"
-            self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption, file_type="jpg")})
+        if self.trainer.is_global_zero:
+            for channel_configuration, grid in zip(self.keypoint_channel_configuration, image_grids):
+                label = get_logging_label_from_channel_configuration(channel_configuration, mode)
+                image_caption = "top: predicted heatmaps, bottom: gt heatmaps"
+                self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption, file_type="jpg")})
 
     def visualize_predicted_keypoints(self, result_dict):
         images = result_dict["input_images"]
@@ -321,9 +454,10 @@ class KeypointDetector(pl.LightningModule):
         return grid
 
     def log_predicted_keypoints(self, grid, mode=str):
-        label = f"predicted_keypoints_{mode}"
-        image_caption = "predicted keypoints"
-        self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
+        if self.trainer.is_global_zero:
+            label = f"predicted_keypoints_{mode}"
+            image_caption = "predicted keypoints"
+            self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
 
     def validation_step(self, val_batch, batch_idx):
         # no need to switch model to eval mode, this is handled by pytorch lightning
@@ -331,18 +465,19 @@ class KeypointDetector(pl.LightningModule):
 
         if self.is_ap_epoch():
             self.update_ap_metrics(result_dict, self.ap_validation_metrics)
-
-            log_images = batch_idx == 0 and self.current_epoch > 0 and self.is_ap_epoch()
+            
+            log_images = batch_idx == 0 and self.current_epoch > 0
             if log_images and isinstance(self.logger, pl.loggers.wandb.WandbLogger):
                 channel_grids = self.visualize_predictions_channels(result_dict)
                 self.log_channel_predictions_grids(channel_grids, mode="validation")
-
+                
                 keypoint_grids = self.visualize_predicted_keypoints(result_dict)
                 self.log_predicted_keypoints(keypoint_grids, mode="validation")
+        
+        self.log("validation/epoch_loss", result_dict["loss"], sync_dist=True)
+        self.log("validation/gt_loss", result_dict["gt_loss"], sync_dist=True)
 
-        ## log (defaults to on_epoch, which aggregates the logged values over entire validation set)
-        self.log("validation/epoch_loss", result_dict["loss"])
-        self.log("validation/gt_loss", result_dict["gt_loss"])
+
 
     def test_step(self, test_batch, batch_idx):
         # no need to switch model to eval mode, this is handled by pytorch lightning
@@ -360,7 +495,7 @@ class KeypointDetector(pl.LightningModule):
         self.log("test/gt_loss", result_dict["gt_loss"])
 
     def log_and_reset_mean_ap(self, mode: str):
-        mean_ap_per_threshold = torch.zeros(len(self.maximal_gt_keypoint_pixel_distances))
+        mean_ap_per_threshold = torch.zeros(len(self.maximal_gt_keypoint_pixel_distances),  device=self.device)
         if mode == "train":
             metrics = self.ap_training_metrics
         elif mode == "validation":
@@ -374,24 +509,25 @@ class KeypointDetector(pl.LightningModule):
         print(f" # {mode} metrics:")
         for channel_idx, channel_name in enumerate(self.keypoint_channel_configuration):
             channel_aps = self.compute_and_log_metrics_for_channel(metrics[channel_idx], channel_name, mode)
-            mean_ap_per_threshold += torch.tensor(channel_aps)
+            mean_ap_per_threshold += torch.tensor(channel_aps, device=self.device)
 
         # calculate the mAP over all channels for each threshold distance, and log them
         for i, maximal_distance in enumerate(self.maximal_gt_keypoint_pixel_distances):
             self.log(
                 f"{mode}/meanAP/d={float(maximal_distance):.1f}",
                 mean_ap_per_threshold[i] / len(self.keypoint_channel_configuration),
+                sync_dist=True,
             )
 
         # calculate the mAP over all channels and all threshold distances, and log it
         mean_ap = mean_ap_per_threshold.mean() / len(self.keypoint_channel_configuration)
-        self.log(f"{mode}/meanAP", mean_ap)
-        self.log(f"{mode}/meanAP/meanAP", mean_ap)
+        self.log(f"{mode}/meanAP", mean_ap, sync_dist=True)
+        self.log(f"{mode}/meanAP/meanAP", mean_ap, sync_dist=True)
 
         if mode == "validation":
             self._most_recent_val_mean_ap = mean_ap
 
-    def training_epoch_end(self, outputs):
+    def on_train_epoch_end(self):
         """
         Called on the end of a training epoch.
         Used to compute and log the AP metrics.
@@ -399,16 +535,22 @@ class KeypointDetector(pl.LightningModule):
         if self.is_ap_epoch():
             self.log_and_reset_mean_ap("train")
 
-    def validation_epoch_end(self, outputs):
+
+    # Updated on_validation_epoch_end method
+    def on_validation_epoch_end(self):
         """
         Called on the end of a validation epoch.
         Used to compute and log the AP metrics.
         """
         if self.is_ap_epoch():
             self.log_and_reset_mean_ap("validation")
-        self.log("checkpointing_metrics/valmeanAP", self._most_recent_val_mean_ap)
+        
+        # Update checkpointing metric
+        self.log("checkpointing_metrics/valmeanAP", self._most_recent_val_mean_ap, sync_dist=True)
 
-    def test_epoch_end(self, outputs):
+    # For very large datasets, use memory-efficient version
+
+    def on_test_epoch_end(self):
         """
         Called on the end of a test epoch.
         Used to compute and log the AP metrics.
@@ -449,10 +591,11 @@ class KeypointDetector(pl.LightningModule):
         rounded_ap_metrics = {k: round(v, 3) for k, v in ap_metrics.items()}
         print(f"{channel} : {rounded_ap_metrics}")
         for maximal_distance, ap in ap_metrics.items():
-            self.log(f"{training_mode}/{channel}_ap/d={float(maximal_distance):.1f}", ap)
+            self.log(f"{training_mode}/{channel}_ap/d={float(maximal_distance):.1f}", ap, sync_dist=True)
 
         mean_ap = sum(ap_metrics.values()) / len(ap_metrics.values())
-        self.log(f"{training_mode}/{channel}_ap/meanAP", mean_ap)  # log top level for wandb hyperparam chart.
+        mean_ap = torch.tensor(mean_ap, device=self.device)
+        self.log(f"{training_mode}/{channel}_ap/meanAP", mean_ap, sync_dist=True)  # log top level for wandb hyperparam chart.
 
         metrics.reset()
         return list(ap_metrics.values())
@@ -470,22 +613,23 @@ class KeypointDetector(pl.LightningModule):
     def extract_detected_keypoints_from_heatmap(self, heatmap: torch.Tensor) -> List[DetectedKeypoint]:
         """
         Extract keypoints from a single channel prediction and format them for AP calculation.
-
         Args:
         heatmap (torch.Tensor) : H x W tensor that represents a heatmap.
         """
         if heatmap.dtype == torch.float16:
-            # Maxpool_2d not implemented for FP16 apparently
             heatmap_to_extract_from = heatmap.float()
         else:
             heatmap_to_extract_from = heatmap
 
+        
         keypoints, scores = get_keypoints_from_heatmap_batch_maxpool(
             heatmap_to_extract_from, self.max_keypoints, self.minimal_keypoint_pixel_distance, return_scores=True
         )
+        
         detected_keypoints = [
             [[] for _ in range(heatmap_to_extract_from.shape[1])] for _ in range(heatmap_to_extract_from.shape[0])
         ]
+        
         for batch_idx in range(len(detected_keypoints)):
             for channel_idx in range(len(detected_keypoints[batch_idx])):
                 for kp_idx in range(len(keypoints[batch_idx][channel_idx])):
@@ -498,3 +642,38 @@ class KeypointDetector(pl.LightningModule):
                     )
 
         return detected_keypoints
+    
+
+
+    @staticmethod
+    def add_focal_loss_args(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+
+        parser = parent_parser.add_argument_group("FocalLoss Mode")
+        
+        
+        parser.add_argument(
+            "--use_focal_loss",
+            action="store_true",
+            default=False,
+            help="Use focal loss instead of binary cross-entropy. Recommended for imbalanced datasets like minutiae detection."
+        )
+        parser.add_argument(
+            "--focal_loss_alpha",
+            type=float,
+            default=0.25,
+            help="Alpha parameter for focal loss. Controls class weighting. 0.25 means 25%% weight for positive class."
+        )
+        parser.add_argument(
+            "--focal_loss_gamma",
+            type=float,
+            default=2.0,
+            help="Gamma parameter for focal loss. Controls focusing on hard examples. Higher values focus more on hard examples."
+        )
+        parser.add_argument(
+            "--use_adaptive_focal_loss",
+            action="store_true",
+            default=False,
+            help="Use adaptive focal loss that adjusts alpha based on batch statistics."
+        )
+        return parent_parser
+        

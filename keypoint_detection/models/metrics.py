@@ -7,7 +7,7 @@ from __future__ import annotations  # allow typing of own class objects
 import copy
 import math
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple, Optional, Any
 
 import torch
 from torchmetrics import Metric
@@ -168,32 +168,52 @@ def calculate_ap_from_pr(precision: List[float], recall: List[float]) -> float:
 class KeypointAPMetric(Metric):
     """torchmetrics-like interface for the Average Precision implementation"""
 
-    full_state_update = False
+    full_state_update = True
 
-    def __init__(self, keypoint_threshold_distance: float, dist_sync_on_step=False):
+    def __init__(self, keypoint_threshold_distance: float, compute_on_cpu=False, sync_on_compute=False, dist_sync_on_step=True):
         """
 
         Args:
             keypoint_threshold_distance (float): distance from ground_truth keypoint that is used to classify keypoint as TP or FP.
         """
 
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-
+        super().__init__(compute_on_cpu=compute_on_cpu, sync_on_compute=sync_on_compute, dist_sync_on_step=dist_sync_on_step)
         self.keypoint_threshold_distance = keypoint_threshold_distance
 
         default: Callable = lambda: []
         self.add_state("classified_keypoints", default=default(), dist_reduce_fx="cat")  # list of ClassifiedKeypoints
         self.add_state("total_ground_truth_keypoints", default=torch.tensor(0), dist_reduce_fx="sum")
+        
+    # Override sync() to manually handle custom object synchronization
+    def sync(
+        self,
+        dist_sync_fn: Optional[Callable] = None,
+        process_group: Optional[Any] = None,
+        should_sync: bool = True,
+        distributed_available: Optional[Callable] = None,
+    ) -> None:
+        
+        if not should_sync or dist_sync_fn is None:
+            return
+
+        # Fix: Move tensor to cuda if it's on CPU and we're in distributed mode
+        if self.total_ground_truth_keypoints.device.type == 'cpu' and torch.cuda.is_available():
+            self.total_ground_truth_keypoints = self.total_ground_truth_keypoints.cuda()
+
+        # Only sync the tensor, not the list
+        self.total_ground_truth_keypoints = dist_sync_fn(self.total_ground_truth_keypoints, process_group=process_group)
 
     def update(self, detected_keypoints: List[DetectedKeypoint], gt_keypoints: List[Keypoint]):
-
         classified_img_keypoints = keypoint_classification(
             detected_keypoints, gt_keypoints, self.keypoint_threshold_distance
         )
 
         self.classified_keypoints += classified_img_keypoints
 
-        self.total_ground_truth_keypoints += len(gt_keypoints)
+        # Fix: Ensure the tensor is on the same device as other metric state
+        device = self.total_ground_truth_keypoints.device
+        increment = torch.tensor(len(gt_keypoints), device=device)
+        self.total_ground_truth_keypoints += increment
 
     def compute(self):
         p, r = calculate_precision_recall(self.classified_keypoints, int(self.total_ground_truth_keypoints.cpu()))
@@ -207,12 +227,12 @@ class KeypointAPMetrics(Metric):
     Uses KeypointAPMetric class.
     """
 
-    full_state_update = False
+    full_state_update = True
 
-    def __init__(self, keypoint_threshold_distances: List[int], dist_sync_on_step=False):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
+    def __init__(self, keypoint_threshold_distances: List[int],  compute_on_cpu=False, sync_on_compute=False, dist_sync_on_step=True):
+        super().__init__(compute_on_cpu=compute_on_cpu, sync_on_compute=sync_on_compute, dist_sync_on_step=dist_sync_on_step)
 
-        self.ap_metrics = [KeypointAPMetric(dst, dist_sync_on_step) for dst in keypoint_threshold_distances]
+        self.ap_metrics = [KeypointAPMetric(dst, compute_on_cpu=compute_on_cpu, sync_on_compute=sync_on_compute, dist_sync_on_step=dist_sync_on_step) for dst in keypoint_threshold_distances]
 
     def update(self, detected_keypoints: List[DetectedKeypoint], gt_keypoints: List[Keypoint]):
         for metric in self.ap_metrics:

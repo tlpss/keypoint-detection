@@ -6,6 +6,92 @@ import torch
 from skimage.feature import peak_local_max
 
 
+
+import torch
+import torch.nn.functional as F
+
+def focal_loss_with_logits(
+    input: torch.Tensor, 
+    target: torch.Tensor, 
+    alpha: float = 0.25, 
+    gamma: float = 2.0, 
+    reduction: str = 'mean'
+) -> torch.Tensor:
+    """
+    Focal Loss implementation for binary classification with logits.
+    
+    This addresses class imbalance by down-weighting easy examples and focusing
+    on hard examples. Particularly useful for keypoint detection where most
+    pixels are background.
+    
+    Args:
+        input: Predicted logits (before sigmoid), shape [N, H, W] or [N, C, H, W]
+        target: Ground truth binary targets, shape [N, H, W] or [N, C, H, W]
+        alpha: Weighting factor for rare class (keypoints). Range [0, 1]
+               alpha=0.25 means 25% weight for positive class, 75% for negative
+        gamma: Focusing parameter. Higher gamma = more focus on hard examples
+               gamma=0 reduces to standard cross-entropy
+               gamma=2 is typical default
+        reduction: 'mean', 'sum', or 'none'
+    
+    Returns:
+        Focal loss tensor
+    """
+    # Convert logits to probabilities
+    p = torch.sigmoid(input)
+    
+    # Calculate cross entropy
+    ce_loss = F.binary_cross_entropy_with_logits(input, target, reduction='none')
+    
+    # Calculate p_t for focal weight
+    p_t = p * target + (1 - p) * (1 - target)
+    
+    # Calculate alpha weight
+    alpha_t = alpha * target + (1 - alpha) * (1 - target)
+    
+    # Calculate focal weight
+    focal_weight = alpha_t * (1 - p_t) ** gamma
+    
+    # Apply focal weight
+    focal_loss = focal_weight * ce_loss
+    
+    if reduction == 'mean':
+        return focal_loss.mean()
+    elif reduction == 'sum':
+        return focal_loss.sum()
+    else:
+        return focal_loss
+
+
+def adaptive_focal_loss_with_logits(
+    input: torch.Tensor,
+    target: torch.Tensor,
+    alpha: float = 0.25,
+    gamma: float = 2.0,
+    reduction: str = 'mean'
+) -> torch.Tensor:
+    """
+    Adaptive focal loss that automatically adjusts alpha based on the 
+    positive/negative ratio in the current batch.
+    
+    Useful when the class imbalance varies between batches.
+    """
+    # Calculate positive ratio in current batch
+    positive_ratio = target.mean().item()
+    
+    # Adjust alpha based on positive ratio
+    # If few positives, increase alpha (give more weight to positives)
+    if positive_ratio < 0.1:
+        alpha = 0.75
+    elif positive_ratio < 0.3:
+        alpha = 0.5
+    else:
+        alpha = 0.25
+    
+    return focal_loss_with_logits(input, target, alpha, gamma, reduction)
+
+
+
 def BCE_loss(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """Simple BCE loss. Used to compute the BCE of the ground truth heatmaps as the BCELoss in Pytorch complains
     about instability in FP16 (even with no_grad).

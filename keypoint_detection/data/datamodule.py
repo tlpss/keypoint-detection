@@ -90,14 +90,27 @@ class KeypointsDataModule(pl.LightningDataModule):
             aspect_ratio = img_width / img_height
             train_transform = MultiChannelKeypointsCompose(
                 [
-                    A.ColorJitter(p=0.8),
-                    A.RandomBrightnessContrast(p=0.8),
+                    A.RandomBrightnessContrast(p=0.5),
                     A.RandomResizedCrop(
-                        img_height, img_width, scale=(0.8, 1.0), ratio=(0.9 * aspect_ratio, 1.1 * aspect_ratio), p=1.0
+                        (img_height, img_width), scale=(0.5, 1.0), ratio=(0.7 , 1.3), p=0.1
                     ),
                     A.GaussianBlur(p=0.2, blur_limit=(3, 3)),
                     A.Sharpen(p=0.2),
-                    A.GaussNoise(),
+                    A.Rotate(
+                        limit=(-180, 180),  p=0.5
+                    ),
+                    A.Transpose(p=0.5),
+                    A.HorizontalFlip(p=0.5),
+                    A.VerticalFlip(p=0.5),
+                    A.ThinPlateSpline((0.01,0.1), num_control_points=4, p=0.2),
+                    A.GaussNoise(p=0.1),
+                    A.Blur(p=0.2),
+                    A.RandomGamma(p=0.1),
+                    A.SaltAndPepper(p=0.1),
+                    A.ImageCompression(quality_range=[20,60], p=0.2),
+                    A.RGBShift(r_shift_limit=[-127, 127], g_shift_limit=[-127, 127], b_shift_limit=[-127, 127], p=0.2),
+                    A.Spatter(p=0.1),
+                    A.PixelDropout(p=0.1, dropout_prob=0.1),
                 ]
             )
             if isinstance(self.train_dataset, COCOKeypointsDataset):
@@ -133,6 +146,8 @@ class KeypointsDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             collate_fn=COCOKeypointsDataset.collate_fn,
             pin_memory=True,  # usually a little faster
+            persistent_workers=True,
+            worker_init_fn=seed_worker,
         )
         return dataloader
 
@@ -151,6 +166,9 @@ class KeypointsDataModule(pl.LightningDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             collate_fn=COCOKeypointsDataset.collate_fn,
+            persistent_workers=True,
+            worker_init_fn=seed_worker,
+            pin_memory=True,  # usually a little faster
         )
         return dataloader
 
@@ -164,6 +182,9 @@ class KeypointsDataModule(pl.LightningDataModule):
             shuffle=False,
             num_workers=0,
             collate_fn=COCOKeypointsDataset.collate_fn,
+            persistent_workers=True,
+            worker_init_fn=seed_worker,
+            pin_memory=True,  # usually a little faster
         )
         return dataloader
 

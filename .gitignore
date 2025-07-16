@@ -11,3 +11,5 @@ lightning_logs**
 
 **/checkpoints/
 build/**
+venv/
+dataset/

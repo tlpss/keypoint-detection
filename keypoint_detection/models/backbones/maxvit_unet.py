@@ -90,23 +90,34 @@ class MaxVitPicoUnet(MaxVitUnet):
         {"down": 32, "channels": 256},
     ]
 
+class MaxVitSmallUnet(MaxVitUnet):
+    MODEL_NAME = "maxxvit_rmlp_small_rw_256"  # 7.5M params.
+    FEATURE_CONFIG = [
+        {"down": 2, "channels": 96},
+        {"down": 4, "channels": 96},
+        {"down": 8, "channels": 192},
+        {"down": 16, "channels": 384},
+        {"down": 32, "channels": 768},
+    ]
+
+class MaxVitLargeUnet(MaxVitUnet):
+    MODEL_NAME = "maxvit_large_tf_512"  # 210M params
+    FEATURE_CONFIG = [
+        {"down": 2, "channels": 128},
+        {"down": 4, "channels": 128},
+        {"down": 8, "channels": 256},
+        {"down": 16, "channels": 512},
+        {"down": 32, "channels": 1024},
+    ]
 
 if __name__ == "__main__":
-    model = timm.create_model("maxvit_rmlp_pico_rw_256")
-    # model = timm.create_model("maxvit_nano_rw_256")
-    feature_extractor = create_feature_extractor(model, ["stem", "stages.0", "stages.1", "stages.2", "stages.3"])
-    x = torch.zeros((1, 3, 256, 256))
-    features = list(feature_extractor(x).values())
+    model = timm.create_model("maxvit_large_tf_512", features_only=True, out_indices=(0,1,2,3,4))
+    x = torch.zeros((1, 3, 512, 512))
+    features = model(x)
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"num params = {n_params/10**6:.2f} M")
-    feature_config = []
-    for x in features:
-        print(f"{x.shape=}")
-        config = {"down": 256 // x.shape[2], "channels": x.shape[1]}
-        feature_config.append(config)
-    print(f"{feature_config=}")
 
-    model = MaxVitPicoUnet()
-    x = torch.zeros((1, 3, 256, 256))
-    y = model(x)
-    print(f"{y.shape=}")
+    for i, feat in enumerate(features):
+        print(f"Feature {i}: shape={feat.shape}")
+        config = {"down": 512 // feat.shape[2], "channels": feat.shape[1]}
+        print(f"Config: {config}")
