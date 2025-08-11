@@ -15,6 +15,33 @@ from keypoint_detection.utils.load_checkpoints import get_model_from_wandb_check
 from keypoint_detection.utils.path import get_wandb_log_dir_path
 
 
+def add_trainer_args(parser):
+    """Add trainer-specific arguments to the parser."""
+    trainer_group = parser.add_argument_group("Trainer")
+    
+    # Core training arguments
+    trainer_group.add_argument("--max_epochs", type=int, default=100)
+    trainer_group.add_argument("--min_epochs", type=int, default=1)
+    
+    # Hardware/performance
+    trainer_group.add_argument("--accelerator", type=str, default="auto")
+    trainer_group.add_argument("--devices", type=str, default="auto")
+    trainer_group.add_argument("--precision", type=str, default="32-true")
+    
+    # Validation settings
+    trainer_group.add_argument("--check_val_every_n_epoch", type=int, default=1)
+    trainer_group.add_argument("--val_check_interval", type=float, default=1.0)
+    
+    # Checkpointing
+    trainer_group.add_argument("--enable_checkpointing", action="store_true", default=True)
+    
+    # Logging
+    trainer_group.add_argument("--log_every_n_steps", type=int, default=50)
+    trainer_group.add_argument("--enable_progress_bar", action="store_true", default=True)
+    
+    return parser
+
+
 def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
     """
     function that adds all system configuration (hyper)parameters to the provided argumentparser
@@ -133,7 +160,7 @@ def train_cli():
     parser = ArgumentParser()
     parser = add_system_args(parser)
     parser = KeypointDetector.add_model_argparse_args(parser)
-    parser = Trainer.add_argparse_args(parser)
+    parser = add_trainer_args(parser)
     parser = KeypointsDataModule.add_argparse_args(parser)
     parser = BackboneFactory.add_to_argparse(parser)
 

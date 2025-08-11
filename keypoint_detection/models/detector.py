@@ -391,7 +391,7 @@ class KeypointDetector(pl.LightningModule):
         if mode == "validation":
             self._most_recent_val_mean_ap = mean_ap
 
-    def training_epoch_end(self, outputs):
+    def on_train_epoch_end(self):
         """
         Called on the end of a training epoch.
         Used to compute and log the AP metrics.
@@ -399,7 +399,7 @@ class KeypointDetector(pl.LightningModule):
         if self.is_ap_epoch():
             self.log_and_reset_mean_ap("train")
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
         """
         Called on the end of a validation epoch.
         Used to compute and log the AP metrics.
