@@ -8,6 +8,7 @@ from typing import List, Tuple
 
 import albumentations as A
 import torch
+import numpy as np
 from torchvision.transforms import ToTensor
 
 from keypoint_detection.data.coco_parser import CocoImage, CocoKeypointCategory, CocoKeypoints
@@ -93,7 +94,10 @@ class COCOKeypointsDataset(ImageDataset):
 
         image_path = self.dataset_dir_path / self.dataset[index][0]
         image = self.image_loader.get_image(str(image_path), index)
-        # remove a-channel if needed
+        # turn grayscale image to 3-channel
+        if len(image.shape) == 2:
+            image = np.stack((image,) * 3, axis=-1)
+         # remove a-channel if needed
         if image.shape[2] == 4:
             image = image[..., :3]
 
