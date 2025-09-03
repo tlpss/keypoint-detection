@@ -133,6 +133,8 @@ class KeypointsDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             collate_fn=COCOKeypointsDataset.collate_fn,
             pin_memory=True,  # usually a little faster
+            persistent_workers=True,
+            worker_init_fn=seed_worker,
         )
         return dataloader
 
@@ -151,6 +153,9 @@ class KeypointsDataModule(pl.LightningDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             collate_fn=COCOKeypointsDataset.collate_fn,
+            persistent_workers=True,
+            worker_init_fn=seed_worker,
+            pin_memory=True,  # usually a little faster
         )
         return dataloader
 
@@ -164,6 +169,9 @@ class KeypointsDataModule(pl.LightningDataModule):
             shuffle=False,
             num_workers=0,
             collate_fn=COCOKeypointsDataset.collate_fn,
+            persistent_workers=True,
+            worker_init_fn=seed_worker,
+            pin_memory=True,  # usually a little faster
         )
         return dataloader
 

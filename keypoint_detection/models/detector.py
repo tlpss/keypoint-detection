@@ -272,11 +272,11 @@ class KeypointDetector(pl.LightningModule):
             self.log_channel_predictions_grids(image_grids, mode="train")
 
         for channel_name in self.keypoint_channel_configuration:
-            self.log(f"train/{channel_name}", result_dict[f"{channel_name}_loss"])
+            self.log(f"train/{channel_name}", result_dict[f"{channel_name}_loss"], sync_dist=True)
 
         # self.log("train/loss", result_dict["loss"])
-        self.log("train/gt_loss", result_dict["gt_loss"])
-        self.log("train/loss", result_dict["loss"], on_epoch=True)  # also logs steps?
+        self.log("train/gt_loss", result_dict["gt_loss"], sync_dist=True)
+        self.log("train/loss", result_dict["loss"], on_epoch=True, sync_dist=True)  # also logs steps?
         return result_dict
 
     def update_ap_metrics(self, result_dict, ap_metrics):
@@ -303,10 +303,11 @@ class KeypointDetector(pl.LightningModule):
         return image_grids
 
     def log_channel_predictions_grids(self, image_grids, mode: str):
-        for channel_configuration, grid in zip(self.keypoint_channel_configuration, image_grids):
-            label = get_logging_label_from_channel_configuration(channel_configuration, mode)
-            image_caption = "top: predicted heatmaps, bottom: gt heatmaps"
-            self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption, file_type="jpg")})
+        if self.trainer.is_global_zero:
+            for channel_configuration, grid in zip(self.keypoint_channel_configuration, image_grids):
+                label = get_logging_label_from_channel_configuration(channel_configuration, mode)
+                image_caption = "top: predicted heatmaps, bottom: gt heatmaps"
+                self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption, file_type="jpg")})
 
     def visualize_predicted_keypoints(self, result_dict):
         images = result_dict["input_images"]
@@ -321,9 +322,10 @@ class KeypointDetector(pl.LightningModule):
         return grid
 
     def log_predicted_keypoints(self, grid, mode=str):
-        label = f"predicted_keypoints_{mode}"
-        image_caption = "predicted keypoints"
-        self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
+        if self.trainer.is_global_zero:
+            label = f"predicted_keypoints_{mode}"
+            image_caption = "predicted keypoints"
+            self.logger.experiment.log({label: wandb.Image(grid, caption=image_caption)})
 
     def validation_step(self, val_batch, batch_idx):
         # no need to switch model to eval mode, this is handled by pytorch lightning
@@ -341,8 +343,8 @@ class KeypointDetector(pl.LightningModule):
                 self.log_predicted_keypoints(keypoint_grids, mode="validation")
 
         ## log (defaults to on_epoch, which aggregates the logged values over entire validation set)
-        self.log("validation/epoch_loss", result_dict["loss"])
-        self.log("validation/gt_loss", result_dict["gt_loss"])
+        self.log("validation/epoch_loss", result_dict["loss"], sync_dist=True)
+        self.log("validation/gt_loss", result_dict["gt_loss"], sync_dist=True)
 
     def test_step(self, test_batch, batch_idx):
         # no need to switch model to eval mode, this is handled by pytorch lightning
@@ -381,12 +383,13 @@ class KeypointDetector(pl.LightningModule):
             self.log(
                 f"{mode}/meanAP/d={float(maximal_distance):.1f}",
                 mean_ap_per_threshold[i] / len(self.keypoint_channel_configuration),
+                sync_dist=True,
             )
 
         # calculate the mAP over all channels and all threshold distances, and log it
         mean_ap = mean_ap_per_threshold.mean() / len(self.keypoint_channel_configuration)
-        self.log(f"{mode}/meanAP", mean_ap)
-        self.log(f"{mode}/meanAP/meanAP", mean_ap)
+        self.log(f"{mode}/meanAP", mean_ap, sync_dist=True)
+        self.log(f"{mode}/meanAP/meanAP", mean_ap, sync_dist=True)
 
         if mode == "validation":
             self._most_recent_val_mean_ap = mean_ap
@@ -406,7 +409,7 @@ class KeypointDetector(pl.LightningModule):
         """
         if self.is_ap_epoch():
             self.log_and_reset_mean_ap("validation")
-        self.log("checkpointing_metrics/valmeanAP", self._most_recent_val_mean_ap)
+        self.log("checkpointing_metrics/valmeanAP", self._most_recent_val_mean_ap, sync_dist=True)
 
     def test_epoch_end(self, outputs):
         """
@@ -449,10 +452,10 @@ class KeypointDetector(pl.LightningModule):
         rounded_ap_metrics = {k: round(v, 3) for k, v in ap_metrics.items()}
         print(f"{channel} : {rounded_ap_metrics}")
         for maximal_distance, ap in ap_metrics.items():
-            self.log(f"{training_mode}/{channel}_ap/d={float(maximal_distance):.1f}", ap)
+            self.log(f"{training_mode}/{channel}_ap/d={float(maximal_distance):.1f}", ap, sync_dist=True)
 
         mean_ap = sum(ap_metrics.values()) / len(ap_metrics.values())
-        self.log(f"{training_mode}/{channel}_ap/meanAP", mean_ap)  # log top level for wandb hyperparam chart.
+        self.log(f"{training_mode}/{channel}_ap/meanAP", mean_ap, sync_dist=True)  # log top level for wandb hyperparam chart.
 
         metrics.reset()
         return list(ap_metrics.values())

@@ -1,6 +1,7 @@
 """train detector based on argparse configuration"""
 from argparse import ArgumentParser
 from typing import Tuple
+import os
 
 import pytorch_lightning as pl
 import wandb
@@ -12,7 +13,7 @@ from keypoint_detection.models.backbones.backbone_factory import BackboneFactory
 from keypoint_detection.models.detector import KeypointDetector
 from keypoint_detection.tasks.train_utils import create_pl_trainer, parse_channel_configuration
 from keypoint_detection.utils.load_checkpoints import get_model_from_wandb_checkpoint
-from keypoint_detection.utils.path import get_wandb_log_dir_path
+from keypoint_detection.utils.path import get_wandb_log_dir_path, get_artifact_dir_path
 
 
 def add_system_args(parent_parser: ArgumentParser) -> ArgumentParser:
@@ -142,6 +143,9 @@ def train_cli():
     hparams["keypoint_channel_configuration"] = parse_channel_configuration(hparams["keypoint_channel_configuration"])
     print(f" argparse arguments ={hparams}")
 
+    os.environ["WANDB_DIR"] = get_wandb_log_dir_path()
+    os.environ["PL_ARTIFACT_DIR"] = get_artifact_dir_path()
+
     # initialize wandb here, this allows for using wandb sweeps.
     # with sweeps, wandb will send hyperparameters to the current agent after the init
     # these can then be found in the 'config'
@@ -151,7 +155,7 @@ def train_cli():
         project=hparams["wandb_project"],
         entity=hparams["wandb_entity"],
         config=hparams,
-        dir=get_wandb_log_dir_path(),  # dir should already exist! will fallback to /tmp and not log images otherwise..
+        dir=os.environ["WANDB_DIR"],
     )
 
     # get (possibly updated by sweep) config parameters

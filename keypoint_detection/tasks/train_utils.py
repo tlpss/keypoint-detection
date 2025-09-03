@@ -1,4 +1,5 @@
 import inspect
+import os
 from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl
@@ -66,10 +67,10 @@ def create_pl_trainer(hparams: dict, wandb_logger: WandbLogger) -> Trainer:
     function that creates a pl.Trainer instance from the given global hyperparameters and logger
     and adds some callbacks.
     """
-
+    os.environ["PL_ARTIFACT_DIR"] = get_artifact_dir_path()
     valid_kwargs = inspect.signature(Trainer.__init__).parameters
     trainer_kwargs = {name: hparams[name] for name in valid_kwargs if name in hparams}
-    trainer_kwargs.update({"logger": wandb_logger})
+    trainer_kwargs.update({"logger": wandb_logger, "default_root_dir": os.environ["PL_ARTIFACT_DIR"]})
     # set dir for checkpoints
     trainer_kwargs.update({"default_root_dir": get_artifact_dir_path()})
 

@@ -7,7 +7,7 @@ from __future__ import annotations  # allow typing of own class objects
 import copy
 import math
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple, Optional, Any
 
 import torch
 from torchmetrics import Metric
@@ -168,7 +168,7 @@ def calculate_ap_from_pr(precision: List[float], recall: List[float]) -> float:
 class KeypointAPMetric(Metric):
     """torchmetrics-like interface for the Average Precision implementation"""
 
-    full_state_update = False
+    full_state_update = True
 
     def __init__(self, keypoint_threshold_distance: float, dist_sync_on_step=False):
         """
@@ -178,12 +178,25 @@ class KeypointAPMetric(Metric):
         """
 
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-
         self.keypoint_threshold_distance = keypoint_threshold_distance
 
         default: Callable = lambda: []
         self.add_state("classified_keypoints", default=default(), dist_reduce_fx="cat")  # list of ClassifiedKeypoints
         self.add_state("total_ground_truth_keypoints", default=torch.tensor(0), dist_reduce_fx="sum")
+        
+    # Override sync() to manually handle custom object synchronization
+    def sync(
+        self,
+        dist_sync_fn: Optional[Callable] = None,
+        process_group: Optional[Any] = None,
+        should_sync: bool = True,
+        distributed_available: Optional[Callable] = None,
+    ) -> None:
+        if not should_sync or dist_sync_fn is None:
+            return
+
+        # Only sync the total_ground_truth_keypoints tensor
+        self.total_ground_truth_keypoints = dist_sync_fn(self.total_ground_truth_keypoints, process_group=process_group)
 
     def update(self, detected_keypoints: List[DetectedKeypoint], gt_keypoints: List[Keypoint]):
 
@@ -207,7 +220,7 @@ class KeypointAPMetrics(Metric):
     Uses KeypointAPMetric class.
     """
 
-    full_state_update = False
+    full_state_update = True
 
     def __init__(self, keypoint_threshold_distances: List[int], dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
